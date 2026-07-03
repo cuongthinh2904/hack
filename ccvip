@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V1.4 - ANTI-AFK + COMPACT WEBHOOK
+-- GIFT VIP CTHINH MAILBOX V1.5 - IN-GAME RECEIVE HISTORY & NAME FIX
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -33,10 +33,10 @@ local Net = require(RS:WaitForChild("SharedModules"):WaitForChild("Networking"))
 local PS = require(RS:WaitForChild("ClientModules"):WaitForChild("PlayerStateClient"))
 
 -- ==========================================
--- DISCORD WEBHOOK LOGIC (COMPACT & BEAUTIFUL)
+-- DISCORD WEBHOOK LOGIC
 -- ==========================================
 
--- 1. Webhook khi bạn GỬI đi
+-- 1. Webhook khi GỬI
 local function SendWebhookLog(uid, targetName, itemName, sentAmount, beforeAmount, afterAmount)
     if not request or WEBHOOK_URL == "" then return end
     
@@ -57,7 +57,6 @@ local function SendWebhookLog(uid, targetName, itemName, sentAmount, beforeAmoun
             end
         end)
         
-        -- Giao diện gọn gàng
         local description = string.format("👤 **To:** `%s`\n📦 **Item:** %s\n🔢 **Amount:** x%d\n📉 **Stock:** %d ➔ %d", targetName, itemName, sentAmount, beforeAmount, afterAmount)
         
         local data = {
@@ -66,7 +65,7 @@ local function SendWebhookLog(uid, targetName, itemName, sentAmount, beforeAmoun
                 ["color"] = 5763719,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.4 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.5 • " .. currentTime }
             }}
         }
         
@@ -76,7 +75,7 @@ local function SendWebhookLog(uid, targetName, itemName, sentAmount, beforeAmoun
     end)
 end
 
--- 2. Webhook khi bạn NHẬN được quà
+-- 2. Webhook khi NHẬN
 local function SendReceiveWebhookLog(senderName, itemName, amount)
     if not request or WEBHOOK_URL == "" then return end
     
@@ -91,7 +90,7 @@ local function SendReceiveWebhookLog(senderName, itemName, amount)
                 ["color"] = 16766720,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = "https://tr.rbxcdn.com/1a7ebc4ab12e126fcb7cb41f7ee6fb80/150/150/Image/Png" },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.4 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.5 • " .. currentTime }
             }}
         }
         
@@ -102,50 +101,11 @@ local function SendReceiveWebhookLog(senderName, itemName, amount)
 end
 
 -- ==========================================
--- INBOX RADAR LOGIC (DÒ TÌM THƯ MỚI)
--- ==========================================
-local TrackedMails = {}
-local isFirstInboxCheck = true
-
-task.spawn(function()
-    while task.wait(10) do
-        local ok, inbox = pcall(function() 
-            local res = Net.Mailbox.OpenInbox:Fire()
-            if type(res) == "table" and res.Wait then return res:Wait() end
-            return res
-        end)
-        
-        if ok and type(inbox) == "table" then
-            for mailId, mailData in pairs(inbox) do
-                if not TrackedMails[mailId] then
-                    TrackedMails[mailId] = true
-                    
-                    if not isFirstInboxCheck then
-                        local sender = "Unknown"
-                        local item = "Unknown"
-                        local count = 1
-                        
-                        if type(mailData) == "table" then
-                            sender = mailData.Sender or mailData.From or mailData.Player or "Unknown"
-                            item = mailData.ItemKey or mailData.Item or mailData.Id or "Item"
-                            count = mailData.Amount or mailData.Count or mailData.Quantity or 1
-                        end
-                        
-                        SendReceiveWebhookLog(sender, item, count)
-                    end
-                end
-            end
-            isFirstInboxCheck = false
-        end
-    end
-end)
-
--- ==========================================
 -- UI SETUP (ULTRA COMPACT)
 -- ==========================================
 
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.4"
+ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.5"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -158,7 +118,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Text = "GIFT VIP CTHINH V1.4"
+Title.Text = "GIFT VIP CTHINH V1.5"
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 12
@@ -191,6 +151,7 @@ HistoryLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     HistoryScroll.CanvasSize = UDim2.new(0, 0, 0, HistoryLayout.AbsoluteContentSize.Y + 10)
 end)
 
+-- Hàm UI: Thêm lịch sử đồ GỬI ĐI (Màu xám)
 local function AddHistoryEntry(uid, targetName, itemName, amount)
     local EntryFrame = Instance.new("Frame", HistoryScroll)
     EntryFrame.Size = UDim2.new(1, 0, 0, 32)
@@ -214,6 +175,43 @@ local function AddHistoryEntry(uid, targetName, itemName, amount)
     TextLbl.TextSize = 10
     TextLbl.TextXAlignment = Enum.TextXAlignment.Left
     TextLbl.Text = string.format("To: %s\nItem: %s - x%d", targetName, itemName, amount)
+end
+
+-- Hàm UI: Thêm lịch sử đồ NHẬN ĐƯỢC (Màu xanh lá)
+local function AddReceiveHistoryEntry(senderName, itemName, amount)
+    local EntryFrame = Instance.new("Frame", HistoryScroll)
+    EntryFrame.Size = UDim2.new(1, 0, 0, 32)
+    EntryFrame.BackgroundColor3 = Color3.fromRGB(20, 45, 20) -- Nền xanh lá tối để nổi bật
+    Instance.new("UICorner", EntryFrame)
+
+    -- Lấy Avatar người gửi
+    local AvatarImg = Instance.new("ImageLabel", EntryFrame)
+    AvatarImg.Size = UDim2.new(0, 24, 0, 24)
+    AvatarImg.Position = UDim2.new(0, 4, 0.5, -12)
+    AvatarImg.BackgroundTransparency = 1
+    
+    task.spawn(function()
+        local uid = 1
+        pcall(function() uid = Players:GetUserIdFromNameAsync(senderName) end)
+        if uid > 1 then
+            AvatarImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(uid) .. "&w=48&h=48"
+        else
+            AvatarImg.Image = "rbxassetid://6031091004" -- Icon mặc định nếu lỗi
+        end
+    end)
+    
+    local AvatarCorner = Instance.new("UICorner", AvatarImg)
+    AvatarCorner.CornerRadius = UDim.new(1, 0)
+
+    local TextLbl = Instance.new("TextLabel", EntryFrame)
+    TextLbl.Size = UDim2.new(1, -34, 1, 0)
+    TextLbl.Position = UDim2.new(0, 32, 0, 0)
+    TextLbl.BackgroundTransparency = 1
+    TextLbl.TextColor3 = Color3.fromRGB(100, 255, 100) -- Chữ xanh lá sáng
+    TextLbl.Font = Enum.Font.Gotham
+    TextLbl.TextSize = 10
+    TextLbl.TextXAlignment = Enum.TextXAlignment.Left
+    TextLbl.Text = string.format("From: %s\nItem: %s - x%d", senderName, itemName, amount)
 end
 
 local TradeFrame = Instance.new("Frame", MainFrame)
@@ -299,7 +297,7 @@ local function RefreshInventoryUI()
             local count = 0
             
             if type(itemData) == "table" then
-                realName = itemData.ItemKey or itemID
+                realName = itemData.ItemKey or itemData.Name or itemData.Id or itemID
                 count = itemData.Amount or 0
             else
                 count = itemData
@@ -448,7 +446,7 @@ local function SendMailBatch()
         local oldAmount = plan[i].BeforeCount
         
         local batchOk = pcall(function() 
-            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.4") 
+            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.5") 
             if type(res) == "table" and res.Wait then res:Wait() end
         end)
         
@@ -538,6 +536,56 @@ MinBtn.MouseButton1Click:Connect(function()
         HistoryFrame.Visible = true
         MainFrame.Size = UDim2.new(0, 300, 0, 320)
         MinBtn.Text = "-"
+    end
+end)
+
+-- ==========================================
+-- INBOX RADAR LOGIC (DÒ TÌM VÀ IN RA LỊCH SỬ NHẬN)
+-- ==========================================
+local TrackedMails = {}
+local isFirstInboxCheck = true
+
+task.spawn(function()
+    while task.wait(10) do
+        local ok, inbox = pcall(function() 
+            local res = Net.Mailbox.OpenInbox:Fire()
+            if type(res) == "table" and res.Wait then return res:Wait() end
+            return res
+        end)
+        
+        if ok and type(inbox) == "table" then
+            for mailId, mailData in pairs(inbox) do
+                if not TrackedMails[mailId] then
+                    TrackedMails[mailId] = true
+                    
+                    if not isFirstInboxCheck then
+                        -- Tách thông tin cực mạnh để lấy tên thật
+                        local sender = "Unknown"
+                        local item = "Unknown"
+                        local count = 1
+                        
+                        if type(mailData) == "table" then
+                            sender = tostring(mailData.Sender or mailData.From or mailData.Player or "Unknown")
+                            
+                            -- Quét sâu cấu trúc dữ liệu để lấy tên vật phẩm
+                            if type(mailData.Item) == "table" then
+                                item = tostring(mailData.Item.Name or mailData.Item.ItemName or mailData.Item.ItemKey or mailData.Item.Id or "Unknown")
+                            else
+                                item = tostring(mailData.ItemName or mailData.Name or mailData.ItemKey or mailData.Item or mailData.Id or "Unknown Item")
+                            end
+                            
+                            count = tonumber(mailData.Amount or mailData.Count or mailData.Quantity or mailData.Value) or 1
+                        end
+                        
+                        -- In ra UI Lịch sử màu xanh lá
+                        AddReceiveHistoryEntry(sender, item, count)
+                        -- Bắn Webhook Discord
+                        SendReceiveWebhookLog(sender, item, count)
+                    end
+                end
+            end
+            isFirstInboxCheck = false
+        end
     end
 end)
 
