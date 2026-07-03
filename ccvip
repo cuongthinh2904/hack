@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V1.13 - PARTIAL SEND & RED ALERT (ENGLISH)
+-- GIFT VIP CTHINH MAILBOX V1.14 - INBOX X-RAY DECODER
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -51,7 +51,7 @@ local function SendWebhookLog(uid, targetName, itemName, amountStr, beforeAmount
         end)
         
         local description = string.format("👤 **To:** `%s`\n📦 **Item:** %s\n🔢 **Amount:** %s\n📉 **Stock:** %d ➔ %d", targetName, itemName, amountStr, beforeAmount, afterAmount)
-        local embedColor = isShort and 16711680 or 5763719 -- Red if short, Green if full
+        local embedColor = isShort and 16711680 or 5763719
         local embedTitle = isShort and "⚠️ PARTIAL GIFT SENT" or "📤 GIFT SENT SUCCESSFULLY"
         
         local data = {
@@ -60,7 +60,7 @@ local function SendWebhookLog(uid, targetName, itemName, amountStr, beforeAmount
                 ["color"] = embedColor,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.13 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.14 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -88,7 +88,7 @@ local function SendReceiveWebhookLog(uid, senderName, itemName, amount)
                 ["color"] = 16766720,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.13 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.14 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -99,7 +99,7 @@ end
 -- UI SETUP (ULTRA-NANO)
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.13"
+ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.14"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -112,7 +112,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "GIFT VIP CTHINH V1.13"
+Title.Text = "GIFT VIP CTHINH V1.14"
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
@@ -193,22 +193,20 @@ local function RenderHistoryEntry(entry)
     TextLbl.TextXAlignment = Enum.TextXAlignment.Left
     
     local prefix = "To:"
-    -- Tự động đổi màu dựa trên trạng thái Giao dịch
     if entry.type == "receive" then
         prefix = "From:"
         EntryFrame.BackgroundColor3 = Color3.fromRGB(20, 45, 20)
         TextLbl.TextColor3 = Color3.fromRGB(100, 255, 100)
     elseif entry.type == "short" then
         prefix = "To:"
-        EntryFrame.BackgroundColor3 = Color3.fromRGB(60, 15, 15) -- Nền Đỏ Sẫm
-        TextLbl.TextColor3 = Color3.fromRGB(255, 100, 100) -- Chữ Đỏ Sáng
+        EntryFrame.BackgroundColor3 = Color3.fromRGB(60, 15, 15)
+        TextLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
     else
         prefix = "To:"
         EntryFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         TextLbl.TextColor3 = Color3.fromRGB(220, 220, 220)
     end
     
-    -- Tương thích ngược với các file history cũ (chỉ lưu số)
     local amtStr = type(entry.amount) == "number" and ("x" .. tostring(entry.amount)) or tostring(entry.amount)
     TextLbl.Text = string.format("%s %s\nItem: %s - %s", prefix, entry.name, entry.item, amtStr)
 end
@@ -330,7 +328,28 @@ local function ParseItemData(itemData, fallbackID, categoryName)
     local d = itemData._data or itemData
     
     local baseName = tostring(d.Name or d.id or d.petId or itemData.ItemKey or fallbackID)
-    if isUUID(baseName) then baseName = "Pet" end
+    
+    -- X-Ray Scan: Vòng lặp đệ quy cứu hộ nếu tên vẫn là UUID hoặc Unknown
+    if isUUID(baseName) or baseName == "Unknown" then
+        local function findDeepName(t)
+            if type(t) ~= "table" then return nil end
+            if t._data and t._data.id and not isUUID(t._data.id) then return tostring(t._data.id) end
+            local possibleNames = {t.id, t.Id, t.Name, t.ItemName, t.petId}
+            for _, v in ipairs(possibleNames) do
+                if type(v) == "string" and string.len(v) > 2 and not isUUID(v) then
+                    return v
+                end
+            end
+            for _, v in pairs(t) do
+                if type(v) == "table" then
+                    local res = findDeepName(v)
+                    if res then return res end
+                end
+            end
+            return nil
+        end
+        baseName = findDeepName(d) or "Pet"
+    end
 
     local lowerBase = string.lower(baseName)
     local isKnownSeed = (lowerBase == "strawberry" or lowerBase == "mega" or lowerBase == "coin" or lowerBase == "diamond" or lowerBase == "potion" or lowerBase == "mushroom")
@@ -539,7 +558,6 @@ local function SendMailBatch()
         if requestedVal > 0 then
             local currentTotal = tonumber(string.match(data.Label.Text, "%d+")) or 0
             
-            -- Tính toán số lượng thực tế gửi được và số lượng thiếu
             local actuallySent = math.min(requestedVal, currentTotal)
             local missingAmount = requestedVal - actuallySent
             
@@ -588,7 +606,7 @@ local function SendMailBatch()
         end)
         
         local batchOk = pcall(function() 
-            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.13") 
+            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.14") 
             if type(res) == "table" and res.Wait then res:Wait() end
         end)
         
@@ -623,9 +641,8 @@ local function SendMailBatch()
             local amountStr = ""
             local isShort = false
             
-            -- Xử lý chuỗi thông báo nếu gửi thiếu
             if logData.Missing > 0 then
-                amountStr = string.format("%d/%d (Missing: %d)", logData.Sent, logData.Missing, logData.Missing)
+                amountStr = string.format("%d/%d (Missing: %d)", logData.Sent, logData.Sent + logData.Missing, logData.Missing)
                 isShort = true
             else
                 amountStr = "x" .. tostring(logData.Sent)
@@ -716,10 +733,22 @@ task.spawn(function()
                             if senderName == "Unknown" then senderName = tostring(senderUid) end
                         end
                         
-                        local mailCat = type(mailData) == "table" and (mailData.Category or (mailData.Item and mailData.Item.Category)) or ""
-                        local itemName, _, count = ParseItemData(mailData, mailData.Id or mailData.ItemKey or "Unknown", mailCat)
+                        -- X-RAY DECODER CHO HÒM THƯ: Mở lớp vỏ mailData.Item
+                        local actualItemData = (type(mailData) == "table" and type(mailData.Item) == "table") and mailData.Item or mailData
+                        local fallback = "Unknown"
+                        if type(mailData) == "table" then
+                            fallback = mailData.ItemKey or mailData.Id or "Unknown"
+                        end
                         
-                        AddHistoryRecord(senderUid, senderName, itemName, "x" .. tostring(count), "receive")
+                        local mailCat = type(mailData) == "table" and (mailData.Category or (mailData.Item and mailData.Item.Category)) or ""
+                        local itemName, _, count = ParseItemData(actualItemData, fallback, mailCat)
+                        
+                        -- Ưu tiên lấy số lượng trực tiếp từ vỏ bọc thư
+                        if type(mailData) == "table" and (mailData.Amount or mailData.Count) then
+                            count = tonumber(mailData.Amount or mailData.Count) or count
+                        end
+                        
+                        AddHistoryRecord(senderUid, senderName, itemName, count, "receive")
                         SendReceiveWebhookLog(senderUid, senderName, itemName, count)
                     end
                 end
