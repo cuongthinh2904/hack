@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V1.11 - SMART VARIANT & TRUE NAME DECODER
+-- GIFT VIP CTHINH MAILBOX V1.13 - PARTIAL SEND & RED ALERT (ENGLISH)
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -37,7 +37,7 @@ local PS = require(RS:WaitForChild("ClientModules"):WaitForChild("PlayerStateCli
 -- ==========================================
 -- DISCORD WEBHOOK LOGIC
 -- ==========================================
-local function SendWebhookLog(uid, targetName, itemName, sentAmount, beforeAmount, afterAmount)
+local function SendWebhookLog(uid, targetName, itemName, amountStr, beforeAmount, afterAmount, isShort)
     if not request or WEBHOOK_URL == "" then return end
     local currentTime = os.date("%H:%M:%S | %d/%m/%Y")
     task.spawn(function()
@@ -49,14 +49,18 @@ local function SendWebhookLog(uid, targetName, itemName, sentAmount, beforeAmoun
                 if decoded and decoded.data and decoded.data[1] and decoded.data[1].imageUrl then avatarUrl = decoded.data[1].imageUrl end
             end
         end)
-        local description = string.format("👤 **To:** `%s`\n📦 **Item:** %s\n🔢 **Amount:** x%d\n📉 **Stock:** %d ➔ %d", targetName, itemName, sentAmount, beforeAmount, afterAmount)
+        
+        local description = string.format("👤 **To:** `%s`\n📦 **Item:** %s\n🔢 **Amount:** %s\n📉 **Stock:** %d ➔ %d", targetName, itemName, amountStr, beforeAmount, afterAmount)
+        local embedColor = isShort and 16711680 or 5763719 -- Red if short, Green if full
+        local embedTitle = isShort and "⚠️ PARTIAL GIFT SENT" or "📤 GIFT SENT SUCCESSFULLY"
+        
         local data = {
             ["embeds"] = {{
-                ["title"] = "📤 GIFT SENT SUCCESSFULLY",
-                ["color"] = 5763719,
+                ["title"] = embedTitle,
+                ["color"] = embedColor,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.11 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.13 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -84,7 +88,7 @@ local function SendReceiveWebhookLog(uid, senderName, itemName, amount)
                 ["color"] = 16766720,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.11 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.13 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -95,7 +99,7 @@ end
 -- UI SETUP (ULTRA-NANO)
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.11"
+ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.13"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -108,7 +112,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "GIFT VIP CTHINH V1.11"
+Title.Text = "GIFT VIP CTHINH V1.13"
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
@@ -170,7 +174,6 @@ end
 local function RenderHistoryEntry(entry)
     local EntryFrame = Instance.new("Frame", HistoryScroll)
     EntryFrame.Size = UDim2.new(1, 0, 0, 32)
-    EntryFrame.BackgroundColor3 = (entry.type == "receive") and Color3.fromRGB(20, 45, 20) or Color3.fromRGB(30, 30, 30)
     Instance.new("UICorner", EntryFrame)
 
     local AvatarImg = Instance.new("ImageLabel", EntryFrame)
@@ -185,13 +188,29 @@ local function RenderHistoryEntry(entry)
     TextLbl.Size = UDim2.new(1, -34, 1, 0)
     TextLbl.Position = UDim2.new(0, 32, 0, 0)
     TextLbl.BackgroundTransparency = 1
-    TextLbl.TextColor3 = (entry.type == "receive") and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(220, 220, 220)
     TextLbl.Font = Enum.Font.Gotham
     TextLbl.TextSize = 10
     TextLbl.TextXAlignment = Enum.TextXAlignment.Left
     
-    local prefix = (entry.type == "receive") and "From:" or "To:"
-    TextLbl.Text = string.format("%s %s\nItem: %s - x%d", prefix, entry.name, entry.item, entry.amount)
+    local prefix = "To:"
+    -- Tự động đổi màu dựa trên trạng thái Giao dịch
+    if entry.type == "receive" then
+        prefix = "From:"
+        EntryFrame.BackgroundColor3 = Color3.fromRGB(20, 45, 20)
+        TextLbl.TextColor3 = Color3.fromRGB(100, 255, 100)
+    elseif entry.type == "short" then
+        prefix = "To:"
+        EntryFrame.BackgroundColor3 = Color3.fromRGB(60, 15, 15) -- Nền Đỏ Sẫm
+        TextLbl.TextColor3 = Color3.fromRGB(255, 100, 100) -- Chữ Đỏ Sáng
+    else
+        prefix = "To:"
+        EntryFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        TextLbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+    end
+    
+    -- Tương thích ngược với các file history cũ (chỉ lưu số)
+    local amtStr = type(entry.amount) == "number" and ("x" .. tostring(entry.amount)) or tostring(entry.amount)
+    TextLbl.Text = string.format("%s %s\nItem: %s - %s", prefix, entry.name, entry.item, amtStr)
 end
 
 local function SyncHistoryUI()
@@ -288,21 +307,37 @@ local function isUUID(str)
     return type(str) == "string" and string.match(str, "%x%x%x%x%x%x%x%x%-") ~= nil
 end
 
-local function ParseItemData(itemData, fallbackID)
+local function ParseItemData(itemData, fallbackID, categoryName)
     local count = 0
     local sendKey = fallbackID
     
+    local catStr = type(categoryName) == "string" and string.lower(categoryName) or ""
+    local itemCatStr = type(itemData) == "table" and type(itemData.Category) == "string" and string.lower(itemData.Category) or ""
+    local isSeedCategory = (string.find(catStr, "seed") or string.find(itemCatStr, "seed"))
+    local isPetCategory = (string.find(catStr, "pet") or string.find(itemCatStr, "pet"))
+    
     if type(itemData) ~= "table" then
-        return tostring(fallbackID), tostring(fallbackID), tonumber(itemData) or 0, fallbackID
+        local bName = tostring(fallbackID)
+        local lowerBName = string.lower(bName)
+        local isKnownSeed = (lowerBName == "strawberry" or lowerBName == "mega" or lowerBName == "coin" or lowerBName == "diamond" or lowerBName == "potion" or lowerBName == "mushroom")
+        
+        if (isSeedCategory or isKnownSeed) and not isPetCategory and not string.find(lowerBName, "seed") then
+            bName = bName .. " Seed"
+        end
+        return bName, bName, tonumber(itemData) or 0, fallbackID
     end
 
     local d = itemData._data or itemData
     
-    -- 1. Lấy tên gốc (Base Name)
     local baseName = tostring(d.Name or d.id or d.petId or itemData.ItemKey or fallbackID)
     if isUUID(baseName) then baseName = "Pet" end
 
-    -- 2. Quét sâu lấy biến thể (Modifiers)
+    local lowerBase = string.lower(baseName)
+    local isKnownSeed = (lowerBase == "strawberry" or lowerBase == "mega" or lowerBase == "coin" or lowerBase == "diamond" or lowerBase == "potion" or lowerBase == "mushroom")
+    if (isSeedCategory or isKnownSeed) and not isPetCategory and not string.find(lowerBase, "seed") then
+        baseName = baseName .. " Seed"
+    end
+
     local mods = {}
     local function addMod(m)
         local sm = string.lower(tostring(m))
@@ -310,10 +345,8 @@ local function ParseItemData(itemData, fallbackID)
         table.insert(mods, tostring(m))
     end
 
-    -- Quét Shiny
     if d.sh or d.shiny or d.isShiny then addMod("Shiny") end
     
-    -- Quét Độ hiếm / Cấp bậc (Tier, Type, Rarity)
     local pt = d.pt or d.tier or d.Tier or d.type or d.Type or d.rarity or d.Rarity
     if pt then
         if pt == 1 or pt == "Gold" then addMod("Gold")
@@ -326,23 +359,17 @@ local function ParseItemData(itemData, fallbackID)
         end
     end
     
-    -- Quét Biến thể Kích thước / Đột biến (Variant, Size, Mutation)
     local var = d.v or d.variant or d.Variant or d.sz or d.size or d.Size or d.mutation or d.Mutation
     if type(var) == "string" and string.len(var) < 15 and not isUUID(var) then
         addMod(var)
     end
 
-    -- 3. Lắp ghép tên hoàn chỉnh
     local name = baseName
     if #mods > 0 then
-        -- Ví dụ: Shiny Mega Bunny
         name = table.concat(mods, " ") .. " " .. baseName
     end
 
-    -- 4. Lấy số lượng
     count = tonumber(itemData.Amount or itemData._am or itemData.Count or itemData.Quantity) or 1
-    
-    -- Hash giờ đây chính là cái tên hoàn chỉnh (Giúp gom nhóm chuẩn 100%)
     local hash = name
     sendKey = itemData.ItemKey or itemData.id or fallbackID
     
@@ -350,7 +377,7 @@ local function ParseItemData(itemData, fallbackID)
 end
 
 -- ==========================================
--- DYNAMIC INVENTORY LOGIC (AUTO-GROUP)
+-- DYNAMIC INVENTORY LOGIC
 -- ==========================================
 local ItemInputs = {}
 local isRefreshing = false
@@ -378,7 +405,7 @@ local function RefreshInventoryUI()
             local iterCat = (type(items) == "table" and not items.id and not items.ItemKey) and category or catName
 
             for itemID, itemData in pairs(iterTable) do
-                local name, hash, count, sendKey = ParseItemData(itemData, itemID)
+                local name, hash, count, sendKey = ParseItemData(itemData, itemID, iterCat)
                 
                 if count > 0 then
                     if not AggregatedItems[hash] then
@@ -507,29 +534,37 @@ local function SendMailBatch()
     local sendLogs = {}
     
     for hash, data in pairs(ItemInputs) do
-        local val = math.floor(tonumber(data.Input.Text) or 0)
-        if val > 0 then
+        local requestedVal = math.floor(tonumber(data.Input.Text) or 0)
+        
+        if requestedVal > 0 then
             local currentTotal = tonumber(string.match(data.Label.Text, "%d+")) or 0
-            table.insert(sendLogs, { Name = data.DisplayName, Sent = val, Before = currentTotal })
             
-            local remaining = val
-            for _, rawItem in ipairs(data.RawItems) do
-                if remaining <= 0 then break end
-                local takeAmount = math.min(remaining, rawItem.Available)
+            -- Tính toán số lượng thực tế gửi được và số lượng thiếu
+            local actuallySent = math.min(requestedVal, currentTotal)
+            local missingAmount = requestedVal - actuallySent
+            
+            if actuallySent > 0 then
+                table.insert(sendLogs, { Name = data.DisplayName, Sent = actuallySent, Missing = missingAmount, Before = currentTotal })
                 
-                table.insert(plan, {
-                    DictKey = rawItem.DictKey, 
-                    Category = rawItem.Category, 
-                    ItemKey = rawItem.ItemKey, 
-                    Count = takeAmount
-                })
-                
-                remaining = remaining - takeAmount
+                local remaining = actuallySent
+                for _, rawItem in ipairs(data.RawItems) do
+                    if remaining <= 0 then break end
+                    local takeAmount = math.min(remaining, rawItem.Available)
+                    
+                    table.insert(plan, {
+                        DictKey = rawItem.DictKey, 
+                        Category = rawItem.Category, 
+                        ItemKey = rawItem.ItemKey, 
+                        Count = takeAmount
+                    })
+                    
+                    remaining = remaining - takeAmount
+                end
             end
         end
     end
     
-    if #plan == 0 then StatusLabel.Text = "Chưa nhập số lượng!" StartBtn.Active = true return end
+    if #plan == 0 then StatusLabel.Text = "Chưa nhập số lượng hợp lệ!" StartBtn.Active = true return end
     
     local sendSuccess = true
     
@@ -553,7 +588,7 @@ local function SendMailBatch()
         end)
         
         local batchOk = pcall(function() 
-            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.11") 
+            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.13") 
             if type(res) == "table" and res.Wait then res:Wait() end
         end)
         
@@ -585,10 +620,22 @@ local function SendMailBatch()
         StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
         
         for _, logData in ipairs(sendLogs) do
-            AddHistoryRecord(uid, targetName, logData.Name, logData.Sent, "send")
+            local amountStr = ""
+            local isShort = false
+            
+            -- Xử lý chuỗi thông báo nếu gửi thiếu
+            if logData.Missing > 0 then
+                amountStr = string.format("%d/%d (Missing: %d)", logData.Sent, logData.Missing, logData.Missing)
+                isShort = true
+            else
+                amountStr = "x" .. tostring(logData.Sent)
+            end
+            
+            AddHistoryRecord(uid, targetName, logData.Name, amountStr, isShort and "short" or "send")
+            
             local afterCount = logData.Before - logData.Sent
             if afterCount < 0 then afterCount = 0 end
-            SendWebhookLog(uid, targetName, logData.Name, logData.Sent, logData.Before, afterCount)
+            SendWebhookLog(uid, targetName, logData.Name, amountStr, logData.Before, afterCount, isShort)
         end
         
         for _, data in pairs(ItemInputs) do data.Input.Text = "0" end
@@ -669,9 +716,10 @@ task.spawn(function()
                             if senderName == "Unknown" then senderName = tostring(senderUid) end
                         end
                         
-                        local itemName, _, count = ParseItemData(mailData, mailData.Id or mailData.ItemKey or "Unknown")
+                        local mailCat = type(mailData) == "table" and (mailData.Category or (mailData.Item and mailData.Item.Category)) or ""
+                        local itemName, _, count = ParseItemData(mailData, mailData.Id or mailData.ItemKey or "Unknown", mailCat)
                         
-                        AddHistoryRecord(senderUid, senderName, itemName, count, "receive")
+                        AddHistoryRecord(senderUid, senderName, itemName, "x" .. tostring(count), "receive")
                         SendReceiveWebhookLog(senderUid, senderName, itemName, count)
                     end
                 end
