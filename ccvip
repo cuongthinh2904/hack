@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V1.5 - IN-GAME RECEIVE HISTORY & NAME FIX
+-- GIFT VIP CTHINH MAILBOX V1.6 - INBOX NAME & UID DECODER
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -36,19 +36,13 @@ local PS = require(RS:WaitForChild("ClientModules"):WaitForChild("PlayerStateCli
 -- DISCORD WEBHOOK LOGIC
 -- ==========================================
 
--- 1. Webhook khi GỬI
 local function SendWebhookLog(uid, targetName, itemName, sentAmount, beforeAmount, afterAmount)
     if not request or WEBHOOK_URL == "" then return end
-    
     local currentTime = os.date("%H:%M:%S | %d/%m/%Y")
-    
     task.spawn(function()
         local avatarUrl = "https://tr.rbxcdn.com/38c6edcb50633730ff4cf39ac8859840/150/150/AvatarHeadshot/Png"
         pcall(function()
-            local res = request({
-                Url = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. tostring(uid) .. "&size=150x150&format=Png&isCircular=false",
-                Method = "GET"
-            })
+            local res = request({Url = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. tostring(uid) .. "&size=150x150&format=Png&isCircular=false", Method = "GET"})
             if res and res.Body then
                 local decoded = HttpService:JSONDecode(res.Body)
                 if decoded and decoded.data and decoded.data[1] and decoded.data[1].imageUrl then
@@ -58,45 +52,47 @@ local function SendWebhookLog(uid, targetName, itemName, sentAmount, beforeAmoun
         end)
         
         local description = string.format("👤 **To:** `%s`\n📦 **Item:** %s\n🔢 **Amount:** x%d\n📉 **Stock:** %d ➔ %d", targetName, itemName, sentAmount, beforeAmount, afterAmount)
-        
         local data = {
             ["embeds"] = {{
                 ["title"] = "📤 GIFT SENT SUCCESSFULLY",
                 ["color"] = 5763719,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.5 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.6 • " .. currentTime }
             }}
         }
-        
-        pcall(function()
-            request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)})
-        end)
+        pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
     end)
 end
 
--- 2. Webhook khi NHẬN
-local function SendReceiveWebhookLog(senderName, itemName, amount)
+local function SendReceiveWebhookLog(uid, senderName, itemName, amount)
     if not request or WEBHOOK_URL == "" then return end
-    
     local currentTime = os.date("%H:%M:%S | %d/%m/%Y")
-    
     task.spawn(function()
-        local description = string.format("👤 **From:** `%s`\n📦 **Item:** %s\n🔢 **Amount:** x%d", senderName, itemName, amount)
+        local avatarUrl = "https://tr.rbxcdn.com/1a7ebc4ab12e126fcb7cb41f7ee6fb80/150/150/Image/Png"
+        if uid > 1 then
+            pcall(function()
+                local res = request({Url = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. tostring(uid) .. "&size=150x150&format=Png&isCircular=false", Method = "GET"})
+                if res and res.Body then
+                    local decoded = HttpService:JSONDecode(res.Body)
+                    if decoded and decoded.data and decoded.data[1] and decoded.data[1].imageUrl then
+                        avatarUrl = decoded.data[1].imageUrl
+                    end
+                end
+            end)
+        end
         
+        local description = string.format("👤 **From:** `%s`\n📦 **Item:** %s\n🔢 **Amount:** x%d", senderName, itemName, amount)
         local data = {
             ["embeds"] = {{
                 ["title"] = "📥 NEW GIFT ARRIVED",
                 ["color"] = 16766720,
                 ["description"] = description,
-                ["thumbnail"] = { ["url"] = "https://tr.rbxcdn.com/1a7ebc4ab12e126fcb7cb41f7ee6fb80/150/150/Image/Png" },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.5 • " .. currentTime }
+                ["thumbnail"] = { ["url"] = avatarUrl },
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.6 • " .. currentTime }
             }}
         }
-        
-        pcall(function()
-            request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)})
-        end)
+        pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
     end)
 end
 
@@ -105,7 +101,7 @@ end
 -- ==========================================
 
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.5"
+ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.6"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -118,7 +114,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Text = "GIFT VIP CTHINH V1.5"
+Title.Text = "GIFT VIP CTHINH V1.6"
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 12
@@ -143,15 +139,12 @@ HistoryScroll.Size = UDim2.new(1, -10, 1, -40)
 HistoryScroll.Position = UDim2.new(0, 5, 0, 35)
 HistoryScroll.BackgroundTransparency = 1
 HistoryScroll.ScrollBarThickness = 2
-
 local HistoryLayout = Instance.new("UIListLayout", HistoryScroll)
 HistoryLayout.Padding = UDim.new(0, 4)
-
 HistoryLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     HistoryScroll.CanvasSize = UDim2.new(0, 0, 0, HistoryLayout.AbsoluteContentSize.Y + 10)
 end)
 
--- Hàm UI: Thêm lịch sử đồ GỬI ĐI (Màu xám)
 local function AddHistoryEntry(uid, targetName, itemName, amount)
     local EntryFrame = Instance.new("Frame", HistoryScroll)
     EntryFrame.Size = UDim2.new(1, 0, 0, 32)
@@ -177,29 +170,17 @@ local function AddHistoryEntry(uid, targetName, itemName, amount)
     TextLbl.Text = string.format("To: %s\nItem: %s - x%d", targetName, itemName, amount)
 end
 
--- Hàm UI: Thêm lịch sử đồ NHẬN ĐƯỢC (Màu xanh lá)
-local function AddReceiveHistoryEntry(senderName, itemName, amount)
+local function AddReceiveHistoryEntry(uid, senderName, itemName, amount)
     local EntryFrame = Instance.new("Frame", HistoryScroll)
     EntryFrame.Size = UDim2.new(1, 0, 0, 32)
-    EntryFrame.BackgroundColor3 = Color3.fromRGB(20, 45, 20) -- Nền xanh lá tối để nổi bật
+    EntryFrame.BackgroundColor3 = Color3.fromRGB(20, 45, 20)
     Instance.new("UICorner", EntryFrame)
 
-    -- Lấy Avatar người gửi
     local AvatarImg = Instance.new("ImageLabel", EntryFrame)
     AvatarImg.Size = UDim2.new(0, 24, 0, 24)
     AvatarImg.Position = UDim2.new(0, 4, 0.5, -12)
     AvatarImg.BackgroundTransparency = 1
-    
-    task.spawn(function()
-        local uid = 1
-        pcall(function() uid = Players:GetUserIdFromNameAsync(senderName) end)
-        if uid > 1 then
-            AvatarImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(uid) .. "&w=48&h=48"
-        else
-            AvatarImg.Image = "rbxassetid://6031091004" -- Icon mặc định nếu lỗi
-        end
-    end)
-    
+    AvatarImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(uid) .. "&w=48&h=48"
     local AvatarCorner = Instance.new("UICorner", AvatarImg)
     AvatarCorner.CornerRadius = UDim.new(1, 0)
 
@@ -207,7 +188,7 @@ local function AddReceiveHistoryEntry(senderName, itemName, amount)
     TextLbl.Size = UDim2.new(1, -34, 1, 0)
     TextLbl.Position = UDim2.new(0, 32, 0, 0)
     TextLbl.BackgroundTransparency = 1
-    TextLbl.TextColor3 = Color3.fromRGB(100, 255, 100) -- Chữ xanh lá sáng
+    TextLbl.TextColor3 = Color3.fromRGB(100, 255, 100)
     TextLbl.Font = Enum.Font.Gotham
     TextLbl.TextSize = 10
     TextLbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -234,7 +215,6 @@ Scroll.Size = UDim2.new(0, 290, 0, 140)
 Scroll.Position = UDim2.new(0.5, -145, 0, 40)
 Scroll.BackgroundTransparency = 1
 Scroll.ScrollBarThickness = 2
-
 local ListLayout = Instance.new("UIListLayout", Scroll)
 ListLayout.Padding = UDim.new(0, 4)
 
@@ -285,14 +265,11 @@ local function RefreshInventoryUI()
     
     local inv = replica.Data.Inventory
     local trackedItems = {}
-    for id, _ in pairs(ItemInputs) do
-        trackedItems[id] = true
-    end
+    for id, _ in pairs(ItemInputs) do trackedItems[id] = true end
     
     for category, items in pairs(inv) do
         for itemID, itemData in pairs(items) do
             trackedItems[itemID] = nil 
-            
             local realName = itemID
             local count = 0
             
@@ -354,7 +331,6 @@ local function RefreshInventoryUI()
             ItemInputs[missingID].Input.Text = "0"
         end
     end
-    
     Scroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y)
     isRefreshing = false
 end
@@ -416,16 +392,8 @@ local function SendMailBatch()
     for id, data in pairs(ItemInputs) do
         local val = math.floor(tonumber(data.Input.Text) or 0)
         if val > 0 then
-            local currentText = data.Label.Text
-            local currentCount = tonumber(string.match(currentText, "%d+")) or 0
-            
-            table.insert(plan, {
-                DictKey = id,
-                Category = data.Cat, 
-                ItemKey = data.Key, 
-                Count = val,
-                BeforeCount = currentCount
-            })
+            local currentCount = tonumber(string.match(data.Label.Text, "%d+")) or 0
+            table.insert(plan, {DictKey = id, Category = data.Cat, ItemKey = data.Key, Count = val, BeforeCount = currentCount})
         end
     end
     
@@ -446,7 +414,7 @@ local function SendMailBatch()
         local oldAmount = plan[i].BeforeCount
         
         local batchOk = pcall(function() 
-            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.5") 
+            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.6") 
             if type(res) == "table" and res.Wait then res:Wait() end
         end)
         
@@ -467,7 +435,6 @@ local function SendMailBatch()
             StatusLabel.Text = "LỖI: Hết lượt Gift (Limit 50)!"
             break
         end
-        
         task.wait(1)
     end
     
@@ -475,25 +442,17 @@ local function SendMailBatch()
         StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
         for _, sentItem in ipairs(plan) do
             AddHistoryEntry(uid, targetName, sentItem.ItemKey, sentItem.Count)
-            
             local afterCount = sentItem.BeforeCount - sentItem.Count
             if afterCount < 0 then afterCount = 0 end
             SendWebhookLog(uid, targetName, sentItem.ItemKey, sentItem.Count, sentItem.BeforeCount, afterCount)
         end
         
-        for _, data in pairs(ItemInputs) do
-            data.Input.Text = "0"
-        end
+        for _, data in pairs(ItemInputs) do data.Input.Text = "0" end
         UserInput.Text = ""
-        
         StatusLabel.Text = "✅ GỬI THÀNH CÔNG!"
         
-        task.spawn(function()
-            task.wait(0.5) 
-            RefreshInventoryUI()
-        end)
+        task.spawn(function() task.wait(0.5); RefreshInventoryUI() end)
     end
-    
     StartBtn.Active = true
 end
 
@@ -540,7 +499,7 @@ MinBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- INBOX RADAR LOGIC (DÒ TÌM VÀ IN RA LỊCH SỬ NHẬN)
+-- INBOX RADAR LOGIC (DÒ TÌM & DỊCH TÊN NGƯỜI GỬI / VẬT PHẨM)
 -- ==========================================
 local TrackedMails = {}
 local isFirstInboxCheck = true
@@ -559,28 +518,43 @@ task.spawn(function()
                     TrackedMails[mailId] = true
                     
                     if not isFirstInboxCheck then
-                        -- Tách thông tin cực mạnh để lấy tên thật
-                        local sender = "Unknown"
+                        -- Tách UID
+                        local senderUid = tonumber(mailData.Sender or mailData.SenderId or mailData.From or mailData.Player) or 1
+                        local senderName = "Unknown"
+                        
+                        -- Dịch UID sang Username Roblox
+                        if senderUid > 1 then
+                            pcall(function() senderName = Players:GetNameFromUserIdAsync(senderUid) end)
+                            if senderName == "Unknown" then senderName = tostring(senderUid) end
+                        end
+                        
                         local item = "Unknown"
                         local count = 1
                         
+                        -- Quét đệ quy tìm ItemKey y hệt thuật toán gói quà
                         if type(mailData) == "table" then
-                            sender = tostring(mailData.Sender or mailData.From or mailData.Player or "Unknown")
-                            
-                            -- Quét sâu cấu trúc dữ liệu để lấy tên vật phẩm
-                            if type(mailData.Item) == "table" then
-                                item = tostring(mailData.Item.Name or mailData.Item.ItemName or mailData.Item.ItemKey or mailData.Item.Id or "Unknown")
-                            else
-                                item = tostring(mailData.ItemName or mailData.Name or mailData.ItemKey or mailData.Item or mailData.Id or "Unknown Item")
+                            local function findItem(t)
+                                if type(t) ~= "table" then return false end
+                                if t.ItemKey or t.ItemName or t.Name or t.Id then
+                                    item = tostring(t.ItemKey or t.ItemName or t.Name or t.Id)
+                                    count = tonumber(t.Amount or t.Count or t.Quantity or t.Value) or 1
+                                    return true
+                                end
+                                for k, v in pairs(t) do
+                                    if type(v) == "table" then
+                                        if findItem(v) then return true end
+                                    end
+                                end
+                                return false
                             end
                             
-                            count = tonumber(mailData.Amount or mailData.Count or mailData.Quantity or mailData.Value) or 1
+                            if not findItem(mailData) then
+                                item = tostring(mailData.Item or "Unknown Item")
+                            end
                         end
                         
-                        -- In ra UI Lịch sử màu xanh lá
-                        AddReceiveHistoryEntry(sender, item, count)
-                        -- Bắn Webhook Discord
-                        SendReceiveWebhookLog(sender, item, count)
+                        AddReceiveHistoryEntry(senderUid, senderName, item, count)
+                        SendReceiveWebhookLog(senderUid, senderName, item, count)
                     end
                 end
             end
@@ -592,14 +566,9 @@ end)
 -- ==========================================
 -- REAL-TIME BACKGROUND SYNC
 -- ==========================================
-task.spawn(function()
-    RefreshInventoryUI()
-end)
-
+task.spawn(function() RefreshInventoryUI() end)
 task.spawn(function()
     while task.wait(1) do
-        if TradeFrame.Visible and not isMinimized then 
-            RefreshInventoryUI() 
-        end
+        if TradeFrame.Visible and not isMinimized then RefreshInventoryUI() end
     end
 end)
