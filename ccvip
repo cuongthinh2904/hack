@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V1.10 - SMART VARIANT SEPARATOR
+-- GIFT VIP CTHINH MAILBOX V1.11 - SMART VARIANT & TRUE NAME DECODER
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -56,7 +56,7 @@ local function SendWebhookLog(uid, targetName, itemName, sentAmount, beforeAmoun
                 ["color"] = 5763719,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.10 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.11 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -84,7 +84,7 @@ local function SendReceiveWebhookLog(uid, senderName, itemName, amount)
                 ["color"] = 16766720,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.10 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.11 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -92,10 +92,10 @@ local function SendReceiveWebhookLog(uid, senderName, itemName, amount)
 end
 
 -- ==========================================
--- UI SETUP
+-- UI SETUP (ULTRA-NANO)
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.10"
+ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.11"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -108,7 +108,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "GIFT VIP CTHINH V1.10"
+Title.Text = "GIFT VIP CTHINH V1.11"
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
@@ -282,86 +282,75 @@ StartBtn.TextSize = 11
 Instance.new("UICorner", StartBtn)
 
 -- ==========================================
--- PARSER: NAME EXTRACTOR & FINGERPRINTING
+-- PARSER: SMART VARIANT & TRUE NAME EXTRACTOR
 -- ==========================================
 local function isUUID(str)
     return type(str) == "string" and string.match(str, "%x%x%x%x%x%x%x%x%-") ~= nil
 end
 
-local function GetPetModifiers(t)
-    local mods = {}
-    if type(t) ~= "table" then return mods end
-    
-    if t.sh or t.shiny or t.isShiny then table.insert(mods, "Shiny") end
-    
-    local pt = t.pt or t.tier or t.Tier
-    if pt then
-        if pt == 1 or pt == "Gold" then table.insert(mods, "Gold")
-        elseif pt == 2 or pt == "Rainbow" then table.insert(mods, "Rainbow")
-        elseif pt == 3 or pt == "Mega" then table.insert(mods, "Mega")
-        elseif pt == 4 or pt == "Mig" then table.insert(mods, "Mig")
-        elseif type(pt) == "string" then table.insert(mods, pt)
-        else table.insert(mods, "T"..tostring(pt))
-        end
-    end
-    
-    local var = t.v or t.variant or t.Variant
-    if type(var) == "string" then table.insert(mods, var) end
-    
-    return mods
-end
-
 local function ParseItemData(itemData, fallbackID)
     local count = 0
-    local name = tostring(fallbackID)
-    local hash = tostring(fallbackID)
     local sendKey = fallbackID
     
-    if type(itemData) == "table" then
-        local d = itemData._data or itemData
-        
-        -- Lấy tên gốc
-        local baseName = d.Name or d.id or d.petId or itemData.ItemKey or fallbackID
-        if isUUID(baseName) then baseName = "Pet" end
-        
-        -- Lấy chỉ số ẩn (Shiny, Mega, Rainbow, Big...)
-        local mods = GetPetModifiers(d)
-        if #mods == 0 and itemData._data then
-            local outerMods = GetPetModifiers(itemData)
-            for _, m in ipairs(outerMods) do table.insert(mods, m) end
-        end
-        
-        if #mods > 0 then
-            name = table.concat(mods, " ") .. " " .. tostring(baseName)
-        else
-            name = tostring(baseName)
-        end
-        
-        -- Số lượng
-        count = tonumber(itemData.Amount or itemData._am or itemData.Count or itemData.Quantity) or 1
-        
-        -- Băm dữ liệu ẩn để tạo mã phân tách độc nhất
-        local hashParts = {name}
-        for k, v in pairs(d) do
-            if type(v) == "string" or type(v) == "number" or type(v) == "boolean" then
-                if not isUUID(tostring(v)) and k ~= "Amount" and k ~= "_am" and k ~= "Count" then
-                    table.insert(hashParts, tostring(k)..":"..tostring(v))
-                end
-            end
-        end
-        table.sort(hashParts)
-        hash = table.concat(hashParts, "|")
-        
-        sendKey = itemData.ItemKey or itemData.id or fallbackID
-    else
-        count = tonumber(itemData) or 0
+    if type(itemData) ~= "table" then
+        return tostring(fallbackID), tostring(fallbackID), tonumber(itemData) or 0, fallbackID
     end
+
+    local d = itemData._data or itemData
+    
+    -- 1. Lấy tên gốc (Base Name)
+    local baseName = tostring(d.Name or d.id or d.petId or itemData.ItemKey or fallbackID)
+    if isUUID(baseName) then baseName = "Pet" end
+
+    -- 2. Quét sâu lấy biến thể (Modifiers)
+    local mods = {}
+    local function addMod(m)
+        local sm = string.lower(tostring(m))
+        for _, v in ipairs(mods) do if string.lower(v) == sm then return end end
+        table.insert(mods, tostring(m))
+    end
+
+    -- Quét Shiny
+    if d.sh or d.shiny or d.isShiny then addMod("Shiny") end
+    
+    -- Quét Độ hiếm / Cấp bậc (Tier, Type, Rarity)
+    local pt = d.pt or d.tier or d.Tier or d.type or d.Type or d.rarity or d.Rarity
+    if pt then
+        if pt == 1 or pt == "Gold" then addMod("Gold")
+        elseif pt == 2 or pt == "Rainbow" then addMod("Rainbow")
+        elseif pt == 3 or pt == "Mega" then addMod("Mega")
+        elseif pt == 4 or pt == "Mig" then addMod("Mig")
+        elseif pt == 5 or pt == "Big" then addMod("Big")
+        elseif type(pt) == "string" and string.len(pt) < 15 and not isUUID(pt) then addMod(pt)
+        elseif type(pt) == "number" then addMod("T" .. tostring(pt))
+        end
+    end
+    
+    -- Quét Biến thể Kích thước / Đột biến (Variant, Size, Mutation)
+    local var = d.v or d.variant or d.Variant or d.sz or d.size or d.Size or d.mutation or d.Mutation
+    if type(var) == "string" and string.len(var) < 15 and not isUUID(var) then
+        addMod(var)
+    end
+
+    -- 3. Lắp ghép tên hoàn chỉnh
+    local name = baseName
+    if #mods > 0 then
+        -- Ví dụ: Shiny Mega Bunny
+        name = table.concat(mods, " ") .. " " .. baseName
+    end
+
+    -- 4. Lấy số lượng
+    count = tonumber(itemData.Amount or itemData._am or itemData.Count or itemData.Quantity) or 1
+    
+    -- Hash giờ đây chính là cái tên hoàn chỉnh (Giúp gom nhóm chuẩn 100%)
+    local hash = name
+    sendKey = itemData.ItemKey or itemData.id or fallbackID
     
     return name, hash, count, sendKey
 end
 
 -- ==========================================
--- DYNAMIC INVENTORY LOGIC
+-- DYNAMIC INVENTORY LOGIC (AUTO-GROUP)
 -- ==========================================
 local ItemInputs = {}
 local isRefreshing = false
@@ -381,7 +370,7 @@ local function RefreshInventoryUI()
     if replica.Data.Pets then dictsToScan.Pets = replica.Data.Pets end
     if replica.Data.Pet then dictsToScan.Pet = replica.Data.Pet end
 
-    local AggregatedItems = {} -- Phân loại bằng Hash thay vì Tên
+    local AggregatedItems = {} 
 
     for catName, invDict in pairs(dictsToScan) do
         for category, items in pairs(invDict) do
@@ -559,15 +548,12 @@ local function SendMailBatch()
             if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkCat] and rep.Data.Pets[checkCat][checkDictKey] end
             if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkDictKey] end
             
-            if type(itemData) == "table" then
-                oldAmount = tonumber(itemData.Amount or itemData._am or 1)
-            else
-                oldAmount = tonumber(itemData) or 1
-            end
+            if type(itemData) == "table" then oldAmount = tonumber(itemData.Amount or itemData._am or 1)
+            else oldAmount = tonumber(itemData) or 1 end
         end)
         
         local batchOk = pcall(function() 
-            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.10") 
+            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.11") 
             if type(res) == "table" and res.Wait then res:Wait() end
         end)
         
@@ -683,7 +669,7 @@ task.spawn(function()
                             if senderName == "Unknown" then senderName = tostring(senderUid) end
                         end
                         
-                        local itemName, _, count = ParseItemData(mailData, mailData.Id or "Unknown")
+                        local itemName, _, count = ParseItemData(mailData, mailData.Id or mailData.ItemKey or "Unknown")
                         
                         AddHistoryRecord(senderUid, senderName, itemName, count, "receive")
                         SendReceiveWebhookLog(senderUid, senderName, itemName, count)
