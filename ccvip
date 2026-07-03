@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V1.14 - INBOX X-RAY DECODER
+-- GIFT VIP CTHINH MAILBOX V1.15 - INBOX ARRAY UNPACKER & UID RETRY
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -60,7 +60,7 @@ local function SendWebhookLog(uid, targetName, itemName, amountStr, beforeAmount
                 ["color"] = embedColor,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.14 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.15 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -81,14 +81,14 @@ local function SendReceiveWebhookLog(uid, senderName, itemName, amount)
                 end
             end)
         end
-        local description = string.format("👤 **From:** `%s`\n📦 **Item:** %s\n🔢 **Amount:** x%d", senderName, itemName, amount)
+        local description = string.format("👤 **From:** `%s`\n📦 **Item:** %s\n🔢 **Amount:** %s", senderName, itemName, amount)
         local data = {
             ["embeds"] = {{
                 ["title"] = "📥 NEW GIFT ARRIVED",
                 ["color"] = 16766720,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.14 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.15 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -99,7 +99,7 @@ end
 -- UI SETUP (ULTRA-NANO)
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.14"
+ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.15"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -112,7 +112,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "GIFT VIP CTHINH V1.14"
+Title.Text = "GIFT VIP CTHINH V1.15"
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
@@ -207,7 +207,9 @@ local function RenderHistoryEntry(entry)
         TextLbl.TextColor3 = Color3.fromRGB(220, 220, 220)
     end
     
-    local amtStr = type(entry.amount) == "number" and ("x" .. tostring(entry.amount)) or tostring(entry.amount)
+    local amtStr = tostring(entry.amount)
+    if not string.match(amtStr, "x") and not string.match(amtStr, "/") then amtStr = "x" .. amtStr end
+    
     TextLbl.Text = string.format("%s %s\nItem: %s - %s", prefix, entry.name, entry.item, amtStr)
 end
 
@@ -305,6 +307,40 @@ local function isUUID(str)
     return type(str) == "string" and string.match(str, "%x%x%x%x%x%x%x%x%-") ~= nil
 end
 
+local function extractRealName(t, fallback)
+    if type(t) ~= "table" then return fallback end
+    local keys = {"id", "Id", "ItemKey", "itemKey", "Name", "name", "ItemName", "petId", "ItemId"}
+    
+    -- Level 1
+    for _, k in ipairs(keys) do
+        local v = t[k]
+        if type(v) == "string" and string.len(v) > 1 and not isUUID(v) then return v end
+    end
+    -- Level 2
+    if type(t._data) == "table" then
+        for _, k in ipairs(keys) do
+            local v = t._data[k]
+            if type(v) == "string" and string.len(v) > 1 and not isUUID(v) then return v end
+        end
+    end
+    -- Level 3 Deep Search
+    local function deepSearch(tbl, depth)
+        if depth > 4 then return nil end
+        for k, v in pairs(tbl) do
+            if type(v) == "table" then
+                local res = deepSearch(v, depth + 1)
+                if res then return res end
+            elseif type(v) == "string" and string.len(v) > 1 and not isUUID(v) then
+                for _, targetKey in ipairs(keys) do
+                    if string.lower(tostring(k)) == string.lower(targetKey) then return v end
+                end
+            end
+        end
+        return nil
+    end
+    return deepSearch(t, 1) or fallback
+end
+
 local function ParseItemData(itemData, fallbackID, categoryName)
     local count = 0
     local sendKey = fallbackID
@@ -318,38 +354,15 @@ local function ParseItemData(itemData, fallbackID, categoryName)
         local bName = tostring(fallbackID)
         local lowerBName = string.lower(bName)
         local isKnownSeed = (lowerBName == "strawberry" or lowerBName == "mega" or lowerBName == "coin" or lowerBName == "diamond" or lowerBName == "potion" or lowerBName == "mushroom")
-        
-        if (isSeedCategory or isKnownSeed) and not isPetCategory and not string.find(lowerBName, "seed") then
-            bName = bName .. " Seed"
-        end
+        if (isSeedCategory or isKnownSeed) and not isPetCategory and not string.find(lowerBName, "seed") then bName = bName .. " Seed" end
         return bName, bName, tonumber(itemData) or 0, fallbackID
     end
 
     local d = itemData._data or itemData
     
-    local baseName = tostring(d.Name or d.id or d.petId or itemData.ItemKey or fallbackID)
-    
-    -- X-Ray Scan: Vòng lặp đệ quy cứu hộ nếu tên vẫn là UUID hoặc Unknown
-    if isUUID(baseName) or baseName == "Unknown" then
-        local function findDeepName(t)
-            if type(t) ~= "table" then return nil end
-            if t._data and t._data.id and not isUUID(t._data.id) then return tostring(t._data.id) end
-            local possibleNames = {t.id, t.Id, t.Name, t.ItemName, t.petId}
-            for _, v in ipairs(possibleNames) do
-                if type(v) == "string" and string.len(v) > 2 and not isUUID(v) then
-                    return v
-                end
-            end
-            for _, v in pairs(t) do
-                if type(v) == "table" then
-                    local res = findDeepName(v)
-                    if res then return res end
-                end
-            end
-            return nil
-        end
-        baseName = findDeepName(d) or "Pet"
-    end
+    -- X-Ray Deep Extract Name
+    local baseName = extractRealName(d, fallbackID)
+    if isUUID(baseName) or baseName == "Unknown" then baseName = "Pet" end
 
     local lowerBase = string.lower(baseName)
     local isKnownSeed = (lowerBase == "strawberry" or lowerBase == "mega" or lowerBase == "coin" or lowerBase == "diamond" or lowerBase == "potion" or lowerBase == "mushroom")
@@ -379,14 +392,10 @@ local function ParseItemData(itemData, fallbackID, categoryName)
     end
     
     local var = d.v or d.variant or d.Variant or d.sz or d.size or d.Size or d.mutation or d.Mutation
-    if type(var) == "string" and string.len(var) < 15 and not isUUID(var) then
-        addMod(var)
-    end
+    if type(var) == "string" and string.len(var) < 15 and not isUUID(var) then addMod(var) end
 
     local name = baseName
-    if #mods > 0 then
-        name = table.concat(mods, " ") .. " " .. baseName
-    end
+    if #mods > 0 then name = table.concat(mods, " ") .. " " .. baseName end
 
     count = tonumber(itemData.Amount or itemData._am or itemData.Count or itemData.Quantity) or 1
     local hash = name
@@ -557,7 +566,6 @@ local function SendMailBatch()
         
         if requestedVal > 0 then
             local currentTotal = tonumber(string.match(data.Label.Text, "%d+")) or 0
-            
             local actuallySent = math.min(requestedVal, currentTotal)
             local missingAmount = requestedVal - actuallySent
             
@@ -575,7 +583,6 @@ local function SendMailBatch()
                         ItemKey = rawItem.ItemKey, 
                         Count = takeAmount
                     })
-                    
                     remaining = remaining - takeAmount
                 end
             end
@@ -606,7 +613,7 @@ local function SendMailBatch()
         end)
         
         local batchOk = pcall(function() 
-            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.14") 
+            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.15") 
             if type(res) == "table" and res.Wait then res:Wait() end
         end)
         
@@ -706,7 +713,7 @@ MinBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- INBOX RADAR LOGIC
+-- INBOX RADAR LOGIC (ARRAY UNPACKER & UID RETRY)
 -- ==========================================
 local TrackedMails = {}
 local isFirstInboxCheck = true
@@ -728,28 +735,44 @@ task.spawn(function()
                         local senderUid = tonumber(mailData.Sender or mailData.SenderId or mailData.From or mailData.Player) or 1
                         local senderName = "Unknown"
                         
+                        -- FIX 1: RETRY DỊCH TÊN ĐỂ KHÔNG HIỆN UID
                         if senderUid > 1 then
-                            pcall(function() senderName = Players:GetNameFromUserIdAsync(senderUid) end)
-                            if senderName == "Unknown" then senderName = tostring(senderUid) end
+                            local success, name = pcall(function() return Players:GetNameFromUserIdAsync(senderUid) end)
+                            if success and name then
+                                senderName = name
+                            else
+                                task.wait(1) -- Chờ mạng ổn định
+                                success, name = pcall(function() return Players:GetNameFromUserIdAsync(senderUid) end)
+                                if success and name then senderName = name else senderName = tostring(senderUid) end
+                            end
                         end
                         
-                        -- X-RAY DECODER CHO HÒM THƯ: Mở lớp vỏ mailData.Item
-                        local actualItemData = (type(mailData) == "table" and type(mailData.Item) == "table") and mailData.Item or mailData
+                        -- FIX 2: PHÁ MẢNG (ARRAY UNPACKER) ĐỂ LẤY TÊN THẬT
+                        local actualItemData = mailData
+                        if type(mailData.Item) == "table" then actualItemData = mailData.Item
+                        elseif type(mailData.Items) == "table" and mailData.Items[1] then actualItemData = mailData.Items[1]
+                        elseif type(mailData.item) == "table" then actualItemData = mailData.item
+                        elseif type(mailData.items) == "table" and mailData.items[1] then actualItemData = mailData.items[1]
+                        end
+                        
                         local fallback = "Unknown"
-                        if type(mailData) == "table" then
+                        if type(actualItemData) == "table" then
+                            fallback = actualItemData.ItemKey or actualItemData.Id or actualItemData.id or actualItemData.Name or "Unknown"
+                        end
+                        if fallback == "Unknown" and type(mailData) == "table" then
                             fallback = mailData.ItemKey or mailData.Id or "Unknown"
                         end
                         
                         local mailCat = type(mailData) == "table" and (mailData.Category or (mailData.Item and mailData.Item.Category)) or ""
                         local itemName, _, count = ParseItemData(actualItemData, fallback, mailCat)
                         
-                        -- Ưu tiên lấy số lượng trực tiếp từ vỏ bọc thư
                         if type(mailData) == "table" and (mailData.Amount or mailData.Count) then
                             count = tonumber(mailData.Amount or mailData.Count) or count
                         end
                         
-                        AddHistoryRecord(senderUid, senderName, itemName, count, "receive")
-                        SendReceiveWebhookLog(senderUid, senderName, itemName, count)
+                        local amountStr = "x" .. tostring(count)
+                        AddHistoryRecord(senderUid, senderName, itemName, amountStr, "receive")
+                        SendReceiveWebhookLog(senderUid, senderName, itemName, amountStr)
                     end
                 end
             end
