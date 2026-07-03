@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V1.6 - INBOX NAME & UID DECODER
+-- GIFT VIP CTHINH MAILBOX V1.7 - PERSISTENT HISTORY & ULTRA MINI UI
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -24,9 +24,33 @@ LP.Idled:Connect(function()
 end)
 
 -- ==========================================
--- CONFIGURATION
+-- CONFIGURATION & LOCAL STORAGE
 -- ==========================================
 local WEBHOOK_URL = "https://discord.com/api/webhooks/1521875481065160704/uJaN1YuVz5c_L9KT6C6OBtjZhu3yV5um7NUfhcxBroddJcVVRJy6ccx5DsCblIoNboCA"
+
+local HistoryFileName = "GiftVipCThinh_History.json"
+local HistoryData = {}
+local HasFileSystem = (isfile and readfile and writefile)
+
+-- Tải lịch sử & Xóa tin cũ hơn 3 ngày (259200 giây)
+if HasFileSystem and isfile(HistoryFileName) then
+    local s, res = pcall(function() return HttpService:JSONDecode(readfile(HistoryFileName)) end)
+    if s and type(res) == "table" then
+        local currentTime = os.time()
+        for _, v in ipairs(res) do
+            if v.time and (currentTime - v.time) <= 259200 then
+                table.insert(HistoryData, v)
+            end
+        end
+        pcall(function() writefile(HistoryFileName, HttpService:JSONEncode(HistoryData)) end)
+    end
+end
+
+local function SaveHistory()
+    if HasFileSystem then
+        pcall(function() writefile(HistoryFileName, HttpService:JSONEncode(HistoryData)) end)
+    end
+end
 
 -- Import Game Modules
 local Net = require(RS:WaitForChild("SharedModules"):WaitForChild("Networking"))
@@ -35,7 +59,6 @@ local PS = require(RS:WaitForChild("ClientModules"):WaitForChild("PlayerStateCli
 -- ==========================================
 -- DISCORD WEBHOOK LOGIC
 -- ==========================================
-
 local function SendWebhookLog(uid, targetName, itemName, sentAmount, beforeAmount, afterAmount)
     if not request or WEBHOOK_URL == "" then return end
     local currentTime = os.date("%H:%M:%S | %d/%m/%Y")
@@ -45,12 +68,9 @@ local function SendWebhookLog(uid, targetName, itemName, sentAmount, beforeAmoun
             local res = request({Url = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. tostring(uid) .. "&size=150x150&format=Png&isCircular=false", Method = "GET"})
             if res and res.Body then
                 local decoded = HttpService:JSONDecode(res.Body)
-                if decoded and decoded.data and decoded.data[1] and decoded.data[1].imageUrl then
-                    avatarUrl = decoded.data[1].imageUrl
-                end
+                if decoded and decoded.data and decoded.data[1] and decoded.data[1].imageUrl then avatarUrl = decoded.data[1].imageUrl end
             end
         end)
-        
         local description = string.format("👤 **To:** `%s`\n📦 **Item:** %s\n🔢 **Amount:** x%d\n📉 **Stock:** %d ➔ %d", targetName, itemName, sentAmount, beforeAmount, afterAmount)
         local data = {
             ["embeds"] = {{
@@ -58,7 +78,7 @@ local function SendWebhookLog(uid, targetName, itemName, sentAmount, beforeAmoun
                 ["color"] = 5763719,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.6 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.7 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -75,13 +95,10 @@ local function SendReceiveWebhookLog(uid, senderName, itemName, amount)
                 local res = request({Url = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. tostring(uid) .. "&size=150x150&format=Png&isCircular=false", Method = "GET"})
                 if res and res.Body then
                     local decoded = HttpService:JSONDecode(res.Body)
-                    if decoded and decoded.data and decoded.data[1] and decoded.data[1].imageUrl then
-                        avatarUrl = decoded.data[1].imageUrl
-                    end
+                    if decoded and decoded.data and decoded.data[1] and decoded.data[1].imageUrl then avatarUrl = decoded.data[1].imageUrl end
                 end
             end)
         end
-        
         local description = string.format("👤 **From:** `%s`\n📦 **Item:** %s\n🔢 **Amount:** x%d", senderName, itemName, amount)
         local data = {
             ["embeds"] = {{
@@ -89,7 +106,7 @@ local function SendReceiveWebhookLog(uid, senderName, itemName, amount)
                 ["color"] = 16766720,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.6 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.7 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -97,159 +114,172 @@ local function SendReceiveWebhookLog(uid, senderName, itemName, amount)
 end
 
 -- ==========================================
--- UI SETUP (ULTRA COMPACT)
+-- UI SETUP (ULTRA MINI FOR 720p)
 -- ==========================================
-
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.6"
+ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.7"
 ScreenGui.ResetOnSpawn = false
 
+-- MAIN FRAME (Thu nhỏ tối đa)
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 300, 0, 320) 
-MainFrame.Position = UDim2.new(0.5, -280, 0.5, -160) 
+MainFrame.Size = UDim2.new(0, 260, 0, 280) 
+MainFrame.Position = UDim2.new(0.5, -240, 0.5, -140) 
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.Active = true
 MainFrame.Draggable = true 
 Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Text = "GIFT VIP CTHINH V1.6"
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Text = "GIFT VIP CTHINH V1.7"
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 12
+Title.TextSize = 11
 Title.BackgroundTransparency = 1
 
+-- HISTORY FRAME (Thu nhỏ tối đa)
 local HistoryFrame = Instance.new("Frame", MainFrame)
-HistoryFrame.Size = UDim2.new(0, 230, 1, 0)
+HistoryFrame.Size = UDim2.new(0, 190, 1, 0)
 HistoryFrame.Position = UDim2.new(1, 5, 0, 0)
 HistoryFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Instance.new("UICorner", HistoryFrame)
 
 local HistoryTitle = Instance.new("TextLabel", HistoryFrame)
-HistoryTitle.Size = UDim2.new(1, 0, 0, 35)
+HistoryTitle.Size = UDim2.new(1, 0, 0, 30)
 HistoryTitle.Text = "GIFT HISTORY"
 HistoryTitle.TextColor3 = Color3.fromRGB(0, 200, 255)
 HistoryTitle.Font = Enum.Font.GothamBold
-HistoryTitle.TextSize = 13
+HistoryTitle.TextSize = 11
 HistoryTitle.BackgroundTransparency = 1
 
+-- NÚT XÓA LỊCH SỬ
+local ClearHistBtn = Instance.new("TextButton", HistoryFrame)
+ClearHistBtn.Size = UDim2.new(0, 22, 0, 22)
+ClearHistBtn.Position = UDim2.new(1, -26, 0, 4)
+ClearHistBtn.Text = "🗑️"
+ClearHistBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+ClearHistBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ClearHistBtn.TextSize = 10
+Instance.new("UICorner", ClearHistBtn)
+
 local HistoryScroll = Instance.new("ScrollingFrame", HistoryFrame)
-HistoryScroll.Size = UDim2.new(1, -10, 1, -40)
-HistoryScroll.Position = UDim2.new(0, 5, 0, 35)
+HistoryScroll.Size = UDim2.new(1, -8, 1, -35)
+HistoryScroll.Position = UDim2.new(0, 4, 0, 30)
 HistoryScroll.BackgroundTransparency = 1
 HistoryScroll.ScrollBarThickness = 2
 local HistoryLayout = Instance.new("UIListLayout", HistoryScroll)
 HistoryLayout.Padding = UDim.new(0, 4)
 HistoryLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    HistoryScroll.CanvasSize = UDim2.new(0, 0, 0, HistoryLayout.AbsoluteContentSize.Y + 10)
+    HistoryScroll.CanvasSize = UDim2.new(0, 0, 0, HistoryLayout.AbsoluteContentSize.Y + 5)
 end)
 
-local function AddHistoryEntry(uid, targetName, itemName, amount)
+-- Rendering UI Lịch sử
+local function RenderSingleHistory(data)
     local EntryFrame = Instance.new("Frame", HistoryScroll)
-    EntryFrame.Size = UDim2.new(1, 0, 0, 32)
-    EntryFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    EntryFrame.Size = UDim2.new(1, 0, 0, 28)
+    EntryFrame.BackgroundColor3 = (data.type == "SEND") and Color3.fromRGB(30, 30, 30) or Color3.fromRGB(20, 45, 20)
     Instance.new("UICorner", EntryFrame)
 
     local AvatarImg = Instance.new("ImageLabel", EntryFrame)
-    AvatarImg.Size = UDim2.new(0, 24, 0, 24)
-    AvatarImg.Position = UDim2.new(0, 4, 0.5, -12)
+    AvatarImg.Size = UDim2.new(0, 20, 0, 20)
+    AvatarImg.Position = UDim2.new(0, 4, 0.5, -10)
     AvatarImg.BackgroundTransparency = 1
-    AvatarImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(uid) .. "&w=48&h=48"
-    local AvatarCorner = Instance.new("UICorner", AvatarImg)
-    AvatarCorner.CornerRadius = UDim.new(1, 0)
+    AvatarImg.Image = (data.uid > 1) and ("rbxthumb://type=AvatarHeadShot&id=" .. tostring(data.uid) .. "&w=48&h=48") or "rbxassetid://6031091004"
+    Instance.new("UICorner", AvatarImg).CornerRadius = UDim.new(1, 0)
 
     local TextLbl = Instance.new("TextLabel", EntryFrame)
-    TextLbl.Size = UDim2.new(1, -34, 1, 0)
-    TextLbl.Position = UDim2.new(0, 32, 0, 0)
+    TextLbl.Size = UDim2.new(1, -28, 1, 0)
+    TextLbl.Position = UDim2.new(0, 28, 0, 0)
     TextLbl.BackgroundTransparency = 1
-    TextLbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+    TextLbl.TextColor3 = (data.type == "SEND") and Color3.fromRGB(220, 220, 220) or Color3.fromRGB(100, 255, 100)
     TextLbl.Font = Enum.Font.Gotham
-    TextLbl.TextSize = 10
+    TextLbl.TextSize = 9
     TextLbl.TextXAlignment = Enum.TextXAlignment.Left
-    TextLbl.Text = string.format("To: %s\nItem: %s - x%d", targetName, itemName, amount)
+    
+    local prefix = (data.type == "SEND") and "To: " or "From: "
+    TextLbl.Text = string.format("%s%s\nItem: %s - x%d", prefix, data.name, data.item, data.amount)
 end
 
-local function AddReceiveHistoryEntry(uid, senderName, itemName, amount)
-    local EntryFrame = Instance.new("Frame", HistoryScroll)
-    EntryFrame.Size = UDim2.new(1, 0, 0, 32)
-    EntryFrame.BackgroundColor3 = Color3.fromRGB(20, 45, 20)
-    Instance.new("UICorner", EntryFrame)
+local function ReloadAllHistoryUI()
+    for _, v in pairs(HistoryScroll:GetChildren()) do
+        if v:IsA("Frame") then v:Destroy() end
+    end
+    for _, d in ipairs(HistoryData) do RenderSingleHistory(d) end
+end
+ReloadAllHistoryUI()
 
-    local AvatarImg = Instance.new("ImageLabel", EntryFrame)
-    AvatarImg.Size = UDim2.new(0, 24, 0, 24)
-    AvatarImg.Position = UDim2.new(0, 4, 0.5, -12)
-    AvatarImg.BackgroundTransparency = 1
-    AvatarImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(uid) .. "&w=48&h=48"
-    local AvatarCorner = Instance.new("UICorner", AvatarImg)
-    AvatarCorner.CornerRadius = UDim.new(1, 0)
+-- Xử lý nút xóa rác
+ClearHistBtn.MouseButton1Click:Connect(function()
+    HistoryData = {}
+    SaveHistory()
+    ReloadAllHistoryUI()
+end)
 
-    local TextLbl = Instance.new("TextLabel", EntryFrame)
-    TextLbl.Size = UDim2.new(1, -34, 1, 0)
-    TextLbl.Position = UDim2.new(0, 32, 0, 0)
-    TextLbl.BackgroundTransparency = 1
-    TextLbl.TextColor3 = Color3.fromRGB(100, 255, 100)
-    TextLbl.Font = Enum.Font.Gotham
-    TextLbl.TextSize = 10
-    TextLbl.TextXAlignment = Enum.TextXAlignment.Left
-    TextLbl.Text = string.format("From: %s\nItem: %s - x%d", senderName, itemName, amount)
+-- Ghi Log & Render
+local function LogHistory(logType, uid, nameStr, itemStr, amountNum)
+    local newEntry = { type = logType, uid = uid, name = nameStr, item = itemStr, amount = amountNum, time = os.time() }
+    table.insert(HistoryData, newEntry)
+    SaveHistory()
+    RenderSingleHistory(newEntry)
 end
 
+-- ==========================================
+-- APP COMPONENTS
+-- ==========================================
 local TradeFrame = Instance.new("Frame", MainFrame)
-TradeFrame.Size = UDim2.new(1, 0, 1, -35)
-TradeFrame.Position = UDim2.new(0, 0, 0, 35)
+TradeFrame.Size = UDim2.new(1, 0, 1, -30)
+TradeFrame.Position = UDim2.new(0, 0, 0, 30)
 TradeFrame.BackgroundTransparency = 1
 TradeFrame.Visible = true 
 
 local UserInput = Instance.new("TextBox", TradeFrame)
-UserInput.Size = UDim2.new(0, 280, 0, 30)
-UserInput.Position = UDim2.new(0.5, -140, 0, 5)
+UserInput.Size = UDim2.new(0, 240, 0, 25)
+UserInput.Position = UDim2.new(0.5, -120, 0, 5)
 UserInput.PlaceholderText = "Username người nhận..."
 UserInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 UserInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-UserInput.TextSize = 11
+UserInput.TextSize = 10
 Instance.new("UICorner", UserInput)
 
 local Scroll = Instance.new("ScrollingFrame", TradeFrame)
-Scroll.Size = UDim2.new(0, 290, 0, 140)
-Scroll.Position = UDim2.new(0.5, -145, 0, 40)
+Scroll.Size = UDim2.new(0, 250, 0, 110)
+Scroll.Position = UDim2.new(0.5, -125, 0, 35)
 Scroll.BackgroundTransparency = 1
 Scroll.ScrollBarThickness = 2
 local ListLayout = Instance.new("UIListLayout", Scroll)
-ListLayout.Padding = UDim.new(0, 4)
+ListLayout.Padding = UDim.new(0, 3)
 
 local StatusLabel = Instance.new("TextLabel", TradeFrame)
-StatusLabel.Size = UDim2.new(1, 0, 0, 20)
-StatusLabel.Position = UDim2.new(0, 0, 0, 185)
+StatusLabel.Size = UDim2.new(1, 0, 0, 15)
+StatusLabel.Position = UDim2.new(0, 0, 0, 150)
 StatusLabel.Text = "Ready!"
 StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 StatusLabel.BackgroundTransparency = 1
-StatusLabel.TextSize = 11
+StatusLabel.TextSize = 10
 
 local ClaimAllBtn = Instance.new("TextButton", TradeFrame)
-ClaimAllBtn.Size = UDim2.new(0, 280, 0, 35)
-ClaimAllBtn.Position = UDim2.new(0.5, -140, 0, 210)
+ClaimAllBtn.Size = UDim2.new(0, 240, 0, 30)
+ClaimAllBtn.Position = UDim2.new(0.5, -120, 0, 170)
 ClaimAllBtn.Text = "🎁 NHẬN TẤT CẢ (CLAIM ALL)"
 ClaimAllBtn.BackgroundColor3 = Color3.fromRGB(130, 0, 220)
 ClaimAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ClaimAllBtn.Font = Enum.Font.GothamBold
-ClaimAllBtn.TextSize = 11
+ClaimAllBtn.TextSize = 10
 Instance.new("UICorner", ClaimAllBtn)
 
 local StartBtn = Instance.new("TextButton", TradeFrame)
-StartBtn.Size = UDim2.new(0, 280, 0, 35)
-StartBtn.Position = UDim2.new(0.5, -140, 0, 250)
+StartBtn.Size = UDim2.new(0, 240, 0, 30)
+StartBtn.Position = UDim2.new(0.5, -120, 0, 205)
 StartBtn.Text = "🚀 GỬI (SEND)"
 StartBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
 StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 StartBtn.Font = Enum.Font.GothamBold
-StartBtn.TextSize = 12
+StartBtn.TextSize = 11
 Instance.new("UICorner", StartBtn)
 
 -- ==========================================
 -- DYNAMIC INVENTORY LOGIC
 -- ==========================================
-
 local ItemInputs = {}
 local isRefreshing = false
 
@@ -283,7 +313,7 @@ local function RefreshInventoryUI()
             if count > 0 then
                 if not ItemInputs[itemID] then
                     local Row = Instance.new("Frame", Scroll)
-                    Row.Size = UDim2.new(1, -10, 0, 28)
+                    Row.Size = UDim2.new(1, -10, 0, 24)
                     Row.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
                     Instance.new("UICorner", Row)
 
@@ -293,7 +323,7 @@ local function RefreshInventoryUI()
                     NameLabel.Text = realName
                     NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
                     NameLabel.TextXAlignment = Enum.TextXAlignment.Left
-                    NameLabel.TextSize = 10
+                    NameLabel.TextSize = 9
                     NameLabel.BackgroundTransparency = 1
 
                     local CountLabel = Instance.new("TextLabel", Row)
@@ -301,7 +331,7 @@ local function RefreshInventoryUI()
                     CountLabel.Position = UDim2.new(0.55, 0, 0, 0)
                     CountLabel.Text = "(" .. count .. ")"
                     CountLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-                    CountLabel.TextSize = 10
+                    CountLabel.TextSize = 9
                     CountLabel.BackgroundTransparency = 1
 
                     local AmountInp = Instance.new("TextBox", Row)
@@ -310,7 +340,7 @@ local function RefreshInventoryUI()
                     AmountInp.Text = "0"
                     AmountInp.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
                     AmountInp.TextColor3 = Color3.fromRGB(0, 255, 127)
-                    AmountInp.TextSize = 10
+                    AmountInp.TextSize = 9
                     Instance.new("UICorner", AmountInp)
 
                     ItemInputs[itemID] = {UI = Row, Input = AmountInp, Label = CountLabel, Cat = category, Key = realName}
@@ -338,7 +368,6 @@ end
 -- ==========================================
 -- MAILBOX FUNCTIONS
 -- ==========================================
-
 local function ClaimAllMail()
     ClaimAllBtn.Active = false
     StatusLabel.Text = "Đang mở hòm thư..."
@@ -362,10 +391,7 @@ local function ClaimAllMail()
     end
     StatusLabel.Text = "✅ Đã nhận " .. count .. " đồ!"
     
-    task.spawn(function()
-        task.wait(0.5)
-        RefreshInventoryUI()
-    end)
+    task.spawn(function() task.wait(0.5); RefreshInventoryUI() end)
     ClaimAllBtn.Active = true
 end
 
@@ -414,7 +440,7 @@ local function SendMailBatch()
         local oldAmount = plan[i].BeforeCount
         
         local batchOk = pcall(function() 
-            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.6") 
+            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.7") 
             if type(res) == "table" and res.Wait then res:Wait() end
         end)
         
@@ -424,9 +450,7 @@ local function SendMailBatch()
         local chkOk, replica = pcall(function() return PS:WaitForLocalReplica(1) end)
         if chkOk and replica and replica.Data and replica.Data.Inventory and replica.Data.Inventory[checkCat] then
             local itemData = replica.Data.Inventory[checkCat][checkDictKey]
-            if itemData then
-                currentAmount = (type(itemData) == "table") and (itemData.Amount or 0) or itemData
-            end
+            if itemData then currentAmount = (type(itemData) == "table") and (itemData.Amount or 0) or itemData end
         end
         
         if not batchOk or currentAmount >= oldAmount then
@@ -441,7 +465,8 @@ local function SendMailBatch()
     if sendSuccess then
         StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
         for _, sentItem in ipairs(plan) do
-            AddHistoryEntry(uid, targetName, sentItem.ItemKey, sentItem.Count)
+            -- Ghi vào UI và Save
+            LogHistory("SEND", uid, targetName, sentItem.ItemKey, sentItem.Count)
             local afterCount = sentItem.BeforeCount - sentItem.Count
             if afterCount < 0 then afterCount = 0 end
             SendWebhookLog(uid, targetName, sentItem.ItemKey, sentItem.Count, sentItem.BeforeCount, afterCount)
@@ -459,27 +484,28 @@ end
 -- ==========================================
 -- WINDOW CONTROLS
 -- ==========================================
-
 ClaimAllBtn.MouseButton1Click:Connect(ClaimAllMail)
 StartBtn.MouseButton1Click:Connect(SendMailBatch)
 
 local CloseBtn = Instance.new("TextButton", MainFrame)
-CloseBtn.Size = UDim2.new(0, 22, 0, 22)
-CloseBtn.Position = UDim2.new(1, -26, 0, 6)
+CloseBtn.Size = UDim2.new(0, 20, 0, 20)
+CloseBtn.Position = UDim2.new(1, -24, 0, 5)
 CloseBtn.Text = "X"
 CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
 CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 10
 Instance.new("UICorner", CloseBtn)
 CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
 local MinBtn = Instance.new("TextButton", MainFrame)
-MinBtn.Size = UDim2.new(0, 22, 0, 22)
-MinBtn.Position = UDim2.new(1, -52, 0, 6)
+MinBtn.Size = UDim2.new(0, 20, 0, 20)
+MinBtn.Position = UDim2.new(1, -48, 0, 5)
 MinBtn.Text = "-"
 MinBtn.BackgroundColor3 = Color3.fromRGB(220, 150, 0)
 MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 10
 Instance.new("UICorner", MinBtn)
 
 local isMinimized = false
@@ -488,18 +514,18 @@ MinBtn.MouseButton1Click:Connect(function()
     if isMinimized then
         TradeFrame.Visible = false
         HistoryFrame.Visible = false
-        MainFrame.Size = UDim2.new(0, 300, 0, 35)
+        MainFrame.Size = UDim2.new(0, 260, 0, 30)
         MinBtn.Text = "+"
     else
         TradeFrame.Visible = true
         HistoryFrame.Visible = true
-        MainFrame.Size = UDim2.new(0, 300, 0, 320)
+        MainFrame.Size = UDim2.new(0, 260, 0, 280)
         MinBtn.Text = "-"
     end
 end)
 
 -- ==========================================
--- INBOX RADAR LOGIC (DÒ TÌM & DỊCH TÊN NGƯỜI GỬI / VẬT PHẨM)
+-- INBOX RADAR LOGIC
 -- ==========================================
 local TrackedMails = {}
 local isFirstInboxCheck = true
@@ -518,11 +544,8 @@ task.spawn(function()
                     TrackedMails[mailId] = true
                     
                     if not isFirstInboxCheck then
-                        -- Tách UID
                         local senderUid = tonumber(mailData.Sender or mailData.SenderId or mailData.From or mailData.Player) or 1
                         local senderName = "Unknown"
-                        
-                        -- Dịch UID sang Username Roblox
                         if senderUid > 1 then
                             pcall(function() senderName = Players:GetNameFromUserIdAsync(senderUid) end)
                             if senderName == "Unknown" then senderName = tostring(senderUid) end
@@ -531,7 +554,6 @@ task.spawn(function()
                         local item = "Unknown"
                         local count = 1
                         
-                        -- Quét đệ quy tìm ItemKey y hệt thuật toán gói quà
                         if type(mailData) == "table" then
                             local function findItem(t)
                                 if type(t) ~= "table" then return false end
@@ -547,13 +569,10 @@ task.spawn(function()
                                 end
                                 return false
                             end
-                            
-                            if not findItem(mailData) then
-                                item = tostring(mailData.Item or "Unknown Item")
-                            end
+                            if not findItem(mailData) then item = tostring(mailData.Item or "Unknown Item") end
                         end
                         
-                        AddReceiveHistoryEntry(senderUid, senderName, item, count)
+                        LogHistory("RECEIVE", senderUid, senderName, item, count)
                         SendReceiveWebhookLog(senderUid, senderName, item, count)
                     end
                 end
