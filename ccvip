@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V1.9 - PET DETECTOR & SMART GROUPING
+-- GIFT VIP CTHINH MAILBOX V1.10 - SMART VARIANT SEPARATOR
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -56,7 +56,7 @@ local function SendWebhookLog(uid, targetName, itemName, sentAmount, beforeAmoun
                 ["color"] = 5763719,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.9 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.10 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -84,7 +84,7 @@ local function SendReceiveWebhookLog(uid, senderName, itemName, amount)
                 ["color"] = 16766720,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.9 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.10 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -92,10 +92,10 @@ local function SendReceiveWebhookLog(uid, senderName, itemName, amount)
 end
 
 -- ==========================================
--- UI SETUP (ULTRA-NANO)
+-- UI SETUP
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.9"
+ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.10"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -108,7 +108,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "GIFT VIP CTHINH V1.9"
+Title.Text = "GIFT VIP CTHINH V1.10"
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
@@ -282,14 +282,89 @@ StartBtn.TextSize = 11
 Instance.new("UICorner", StartBtn)
 
 -- ==========================================
--- DYNAMIC INVENTORY LOGIC (SMART PET GROUPING)
+-- PARSER: NAME EXTRACTOR & FINGERPRINTING
 -- ==========================================
-local ItemInputs = {}
-local isRefreshing = false
-
 local function isUUID(str)
     return type(str) == "string" and string.match(str, "%x%x%x%x%x%x%x%x%-") ~= nil
 end
+
+local function GetPetModifiers(t)
+    local mods = {}
+    if type(t) ~= "table" then return mods end
+    
+    if t.sh or t.shiny or t.isShiny then table.insert(mods, "Shiny") end
+    
+    local pt = t.pt or t.tier or t.Tier
+    if pt then
+        if pt == 1 or pt == "Gold" then table.insert(mods, "Gold")
+        elseif pt == 2 or pt == "Rainbow" then table.insert(mods, "Rainbow")
+        elseif pt == 3 or pt == "Mega" then table.insert(mods, "Mega")
+        elseif pt == 4 or pt == "Mig" then table.insert(mods, "Mig")
+        elseif type(pt) == "string" then table.insert(mods, pt)
+        else table.insert(mods, "T"..tostring(pt))
+        end
+    end
+    
+    local var = t.v or t.variant or t.Variant
+    if type(var) == "string" then table.insert(mods, var) end
+    
+    return mods
+end
+
+local function ParseItemData(itemData, fallbackID)
+    local count = 0
+    local name = tostring(fallbackID)
+    local hash = tostring(fallbackID)
+    local sendKey = fallbackID
+    
+    if type(itemData) == "table" then
+        local d = itemData._data or itemData
+        
+        -- Lấy tên gốc
+        local baseName = d.Name or d.id or d.petId or itemData.ItemKey or fallbackID
+        if isUUID(baseName) then baseName = "Pet" end
+        
+        -- Lấy chỉ số ẩn (Shiny, Mega, Rainbow, Big...)
+        local mods = GetPetModifiers(d)
+        if #mods == 0 and itemData._data then
+            local outerMods = GetPetModifiers(itemData)
+            for _, m in ipairs(outerMods) do table.insert(mods, m) end
+        end
+        
+        if #mods > 0 then
+            name = table.concat(mods, " ") .. " " .. tostring(baseName)
+        else
+            name = tostring(baseName)
+        end
+        
+        -- Số lượng
+        count = tonumber(itemData.Amount or itemData._am or itemData.Count or itemData.Quantity) or 1
+        
+        -- Băm dữ liệu ẩn để tạo mã phân tách độc nhất
+        local hashParts = {name}
+        for k, v in pairs(d) do
+            if type(v) == "string" or type(v) == "number" or type(v) == "boolean" then
+                if not isUUID(tostring(v)) and k ~= "Amount" and k ~= "_am" and k ~= "Count" then
+                    table.insert(hashParts, tostring(k)..":"..tostring(v))
+                end
+            end
+        end
+        table.sort(hashParts)
+        hash = table.concat(hashParts, "|")
+        
+        sendKey = itemData.ItemKey or itemData.id or fallbackID
+    else
+        count = tonumber(itemData) or 0
+    end
+    
+    return name, hash, count, sendKey
+end
+
+-- ==========================================
+-- DYNAMIC INVENTORY LOGIC
+-- ==========================================
+local ItemInputs = {}
+local isRefreshing = false
 
 local function RefreshInventoryUI()
     if isRefreshing then return end 
@@ -301,60 +376,30 @@ local function RefreshInventoryUI()
         return 
     end
     
-    -- Gộp Inventory và Pets lại để quét chung
     local dictsToScan = {}
     if replica.Data.Inventory then dictsToScan.Inventory = replica.Data.Inventory end
     if replica.Data.Pets then dictsToScan.Pets = replica.Data.Pets end
     if replica.Data.Pet then dictsToScan.Pet = replica.Data.Pet end
 
-    local AggregatedItems = {} -- [Tên hiển thị] = { Total = x, List = { uuid1, uuid2... } }
+    local AggregatedItems = {} -- Phân loại bằng Hash thay vì Tên
 
     for catName, invDict in pairs(dictsToScan) do
         for category, items in pairs(invDict) do
-            -- Xử lý trường hợp Pets không có category con mà trải dài ra luôn
             local iterTable = (type(items) == "table" and not items.id and not items.ItemKey) and items or { [category] = items }
             local iterCat = (type(items) == "table" and not items.id and not items.ItemKey) and category or catName
 
             for itemID, itemData in pairs(iterTable) do
-                local realName = itemID
-                local count = 0
-                local itemKeyForSend = itemID
-
-                if type(itemData) == "table" then
-                    -- Lấy tên thật (Bypass UUID)
-                    if itemData._data and itemData._data.id and not isUUID(itemData._data.id) then
-                        realName = tostring(itemData._data.id)
-                    elseif itemData.id and not isUUID(itemData.id) then
-                        realName = tostring(itemData.id)
-                    elseif itemData.Name and not isUUID(itemData.Name) then
-                        realName = tostring(itemData.Name)
-                    else
-                        realName = tostring(itemData.ItemKey or itemID)
-                    end
-                    
-                    -- Lấy số lượng (Nếu là Pet không có Amount, tự ép count = 1)
-                    local explicitAmount = tonumber(itemData.Amount or itemData._am or itemData.Count or itemData.Quantity)
-                    if explicitAmount then
-                        count = explicitAmount
-                    else
-                        count = 1 -- Pet riêng lẻ!
-                    end
-                    
-                    itemKeyForSend = itemData.ItemKey or itemData.id or itemID
-                else
-                    count = tonumber(itemData) or 0
-                end
+                local name, hash, count, sendKey = ParseItemData(itemData, itemID)
                 
-                -- Gom nhóm vào AggregatedItems
                 if count > 0 then
-                    if not AggregatedItems[realName] then
-                        AggregatedItems[realName] = { Total = 0, RawItems = {} }
+                    if not AggregatedItems[hash] then
+                        AggregatedItems[hash] = { DisplayName = name, Total = 0, RawItems = {} }
                     end
-                    AggregatedItems[realName].Total = AggregatedItems[realName].Total + count
-                    table.insert(AggregatedItems[realName].RawItems, {
+                    AggregatedItems[hash].Total = AggregatedItems[hash].Total + count
+                    table.insert(AggregatedItems[hash].RawItems, {
                         DictKey = itemID,
                         Category = iterCat,
-                        ItemKey = itemKeyForSend,
+                        ItemKey = sendKey,
                         Available = count
                     })
                 end
@@ -362,14 +407,13 @@ local function RefreshInventoryUI()
         end
     end
     
-    -- Xóa UI cũ và Render UI mới theo nhóm
-    local trackedNames = {}
-    for name, _ in pairs(ItemInputs) do trackedNames[name] = true end
+    local trackedHashes = {}
+    for h, _ in pairs(ItemInputs) do trackedHashes[h] = true end
     
-    for realName, data in pairs(AggregatedItems) do
-        trackedNames[realName] = nil
+    for hash, data in pairs(AggregatedItems) do
+        trackedHashes[hash] = nil
         
-        if not ItemInputs[realName] then
+        if not ItemInputs[hash] then
             local Row = Instance.new("Frame", Scroll)
             Row.Size = UDim2.new(1, -10, 0, 26)
             Row.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -378,7 +422,7 @@ local function RefreshInventoryUI()
             local NameLabel = Instance.new("TextLabel", Row)
             NameLabel.Size = UDim2.new(0.5, 0, 1, 0)
             NameLabel.Position = UDim2.new(0.05, 0, 0, 0)
-            NameLabel.Text = realName
+            NameLabel.Text = data.DisplayName
             NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
             NameLabel.TextXAlignment = Enum.TextXAlignment.Left
             NameLabel.TextSize = 10
@@ -401,20 +445,19 @@ local function RefreshInventoryUI()
             AmountInp.TextSize = 10
             Instance.new("UICorner", AmountInp)
 
-            ItemInputs[realName] = { UI = Row, Input = AmountInp, Label = CountLabel, RawItems = data.RawItems }
+            ItemInputs[hash] = { UI = Row, Input = AmountInp, Label = CountLabel, RawItems = data.RawItems, DisplayName = data.DisplayName }
         else
-            ItemInputs[realName].UI.Visible = true
-            ItemInputs[realName].Label.Text = "(" .. data.Total .. ")"
-            ItemInputs[realName].RawItems = data.RawItems -- Update the pointers
+            ItemInputs[hash].UI.Visible = true
+            ItemInputs[hash].Label.Text = "(" .. data.Total .. ")"
+            ItemInputs[hash].RawItems = data.RawItems 
         end
     end
     
-    -- Ẩn các món đồ đã hết
-    for missingName, _ in pairs(trackedNames) do
-        if ItemInputs[missingName] then
-            ItemInputs[missingName].UI.Visible = false
-            ItemInputs[missingName].Input.Text = "0"
-            ItemInputs[missingName].RawItems = {}
+    for missingHash, _ in pairs(trackedHashes) do
+        if ItemInputs[missingHash] then
+            ItemInputs[missingHash].UI.Visible = false
+            ItemInputs[missingHash].Input.Text = "0"
+            ItemInputs[missingHash].RawItems = {}
         end
     end
     
@@ -472,15 +515,14 @@ local function SendMailBatch()
     end
     
     local plan = {}
-    local sendLogs = {} -- Lưu lại log để báo cáo 1 lần gộp thay vì báo lắt nhắt
+    local sendLogs = {}
     
-    for realName, data in pairs(ItemInputs) do
+    for hash, data in pairs(ItemInputs) do
         local val = math.floor(tonumber(data.Input.Text) or 0)
         if val > 0 then
             local currentTotal = tonumber(string.match(data.Label.Text, "%d+")) or 0
-            table.insert(sendLogs, { Name = realName, Sent = val, Before = currentTotal })
+            table.insert(sendLogs, { Name = data.DisplayName, Sent = val, Before = currentTotal })
             
-            -- Phân bổ tự động số lượng `val` vào các RawItems (UUID) khác nhau
             local remaining = val
             for _, rawItem in ipairs(data.RawItems) do
                 if remaining <= 0 then break end
@@ -507,17 +549,15 @@ local function SendMailBatch()
         for j = i, math.min(i + 19, #plan) do table.insert(batch, {Category = plan[j].Category, ItemKey = plan[j].ItemKey, Count = plan[j].Count}) end
         
         StatusLabel.Text = "Gửi đợt " .. math.ceil(i/20)
-        
         local checkCat = plan[i].Category
         local checkDictKey = plan[i].DictKey
         
-        -- Lấy số lượng trước gửi
         local oldAmount = 0
         pcall(function()
             local rep = PS:WaitForLocalReplica(1)
             local itemData = rep.Data.Inventory and rep.Data.Inventory[checkCat] and rep.Data.Inventory[checkCat][checkDictKey]
             if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkCat] and rep.Data.Pets[checkCat][checkDictKey] end
-            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkDictKey] end -- Fallback
+            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkDictKey] end
             
             if type(itemData) == "table" then
                 oldAmount = tonumber(itemData.Amount or itemData._am or 1)
@@ -527,26 +567,22 @@ local function SendMailBatch()
         end)
         
         local batchOk = pcall(function() 
-            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.9") 
+            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.10") 
             if type(res) == "table" and res.Wait then res:Wait() end
         end)
         
         task.wait(1.5)
         
-        -- Lấy số lượng sau gửi
         local currentAmount = 0
         pcall(function()
             local rep = PS:WaitForLocalReplica(1)
             local itemData = rep.Data.Inventory and rep.Data.Inventory[checkCat] and rep.Data.Inventory[checkCat][checkDictKey]
             if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkCat] and rep.Data.Pets[checkCat][checkDictKey] end
-            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkDictKey] end -- Fallback
+            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkDictKey] end
             
             if itemData then
-                if type(itemData) == "table" then
-                    currentAmount = tonumber(itemData.Amount or itemData._am or 1)
-                else
-                    currentAmount = tonumber(itemData) or 1
-                end
+                if type(itemData) == "table" then currentAmount = tonumber(itemData.Amount or itemData._am or 1)
+                else currentAmount = tonumber(itemData) or 1 end
             end
         end)
         
@@ -562,7 +598,6 @@ local function SendMailBatch()
     if sendSuccess then
         StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
         
-        -- Ghi log thông minh theo tên nhóm (Gọn gàng trên UI)
         for _, logData in ipairs(sendLogs) do
             AddHistoryRecord(uid, targetName, logData.Name, logData.Sent, "send")
             local afterCount = logData.Before - logData.Sent
@@ -648,36 +683,10 @@ task.spawn(function()
                             if senderName == "Unknown" then senderName = tostring(senderUid) end
                         end
                         
-                        local item = "Unknown"
-                        local count = 1
+                        local itemName, _, count = ParseItemData(mailData, mailData.Id or "Unknown")
                         
-                        if type(mailData) == "table" then
-                            local function getReadableName(t)
-                                if type(t) ~= "table" then return nil end
-                                if t._data and t._data.id and not isUUID(t._data.id) then return tostring(t._data.id) end
-                                
-                                local possibleNames = {t.id, t.Id, t.Name, t.ItemName}
-                                for _, v in ipairs(possibleNames) do
-                                    if type(v) == "string" and string.len(v) > 2 and not isUUID(v) then
-                                        return v
-                                    end
-                                end
-                                
-                                for _, v in pairs(t) do
-                                    if type(v) == "table" then
-                                        local res = getReadableName(v)
-                                        if res then return res end
-                                    end
-                                end
-                                return nil
-                            end
-                            
-                            item = getReadableName(mailData) or tostring(mailData.ItemKey or mailData.Id or "Unknown Item")
-                            count = tonumber(mailData.Amount or mailData.Count or mailData.Quantity or (mailData._data and mailData._data._am) or 1) or 1
-                        end
-                        
-                        AddHistoryRecord(senderUid, senderName, item, count, "receive")
-                        SendReceiveWebhookLog(senderUid, senderName, item, count)
+                        AddHistoryRecord(senderUid, senderName, itemName, count, "receive")
+                        SendReceiveWebhookLog(senderUid, senderName, itemName, count)
                     end
                 end
             end
