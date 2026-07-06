@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V1.16 - MULTI-ITEM ARRAY SCAN & TIMESTAMP
+-- GIFT VIP CTHINH MAILBOX V1.17 - SMART AUTO-BATCHING & DYNAMIC UI
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -37,7 +37,7 @@ local PS = require(RS:WaitForChild("ClientModules"):WaitForChild("PlayerStateCli
 -- ==========================================
 -- DISCORD WEBHOOK LOGIC
 -- ==========================================
-local function SendWebhookLog(uid, targetName, itemName, amountStr, beforeAmount, afterAmount, isShort)
+local function SendWebhookLog(uid, targetName, description, isShort)
     if not request or WEBHOOK_URL == "" then return end
     local currentTime = os.date("%H:%M:%S | %d/%m/%Y")
     task.spawn(function()
@@ -50,7 +50,6 @@ local function SendWebhookLog(uid, targetName, itemName, amountStr, beforeAmount
             end
         end)
         
-        local description = string.format("👤 **To:** `%s`\n📦 **Item:** %s\n🔢 **Amount:** %s\n📉 **Stock:** %d ➔ %d", targetName, itemName, amountStr, beforeAmount, afterAmount)
         local embedColor = isShort and 16711680 or 5763719
         local embedTitle = isShort and "⚠️ PARTIAL GIFT SENT" or "📤 GIFT SENT SUCCESSFULLY"
         
@@ -60,14 +59,14 @@ local function SendWebhookLog(uid, targetName, itemName, amountStr, beforeAmount
                 ["color"] = embedColor,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.16 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.17 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
     end)
 end
 
-local function SendReceiveWebhookLog(uid, senderName, itemName, amount)
+local function SendReceiveWebhookLog(uid, senderName, description)
     if not request or WEBHOOK_URL == "" then return end
     local currentTime = os.date("%H:%M:%S | %d/%m/%Y")
     task.spawn(function()
@@ -81,14 +80,13 @@ local function SendReceiveWebhookLog(uid, senderName, itemName, amount)
                 end
             end)
         end
-        local description = string.format("👤 **From:** `%s`\n📦 **Item:** %s\n🔢 **Amount:** %s", senderName, itemName, amount)
         local data = {
             ["embeds"] = {{
                 ["title"] = "📥 NEW GIFT ARRIVED",
                 ["color"] = 16766720,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.16 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.17 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -99,7 +97,7 @@ end
 -- UI SETUP (ULTRA-NANO)
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.16"
+ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.17"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -112,7 +110,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "GIFT VIP CTHINH V1.16"
+Title.Text = "GIFT VIP CTHINH V1.17"
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
@@ -173,7 +171,6 @@ end
 
 local function RenderHistoryEntry(entry)
     local EntryFrame = Instance.new("Frame", HistoryScroll)
-    EntryFrame.Size = UDim2.new(1, 0, 0, 32)
     Instance.new("UICorner", EntryFrame)
 
     local AvatarImg = Instance.new("ImageLabel", EntryFrame)
@@ -191,6 +188,7 @@ local function RenderHistoryEntry(entry)
     TextLbl.Font = Enum.Font.Gotham
     TextLbl.TextSize = 10
     TextLbl.TextXAlignment = Enum.TextXAlignment.Left
+    TextLbl.TextWrapped = true -- Cho phép tự động xuống dòng
     
     local prefix = "To:"
     if entry.type == "receive" then
@@ -207,13 +205,28 @@ local function RenderHistoryEntry(entry)
         TextLbl.TextColor3 = Color3.fromRGB(220, 220, 220)
     end
     
-    local amtStr = tostring(entry.amount)
-    if not string.match(amtStr, "x") and not string.match(amtStr, "/") then amtStr = "x" .. amtStr end
-    
-    -- THÊM TIMESTAMP ĐỊNH DẠNG [HH:MM]
     local timeStr = os.date("%H:%M", entry.time or os.time())
+    local fullText = ""
     
-    TextLbl.Text = string.format("%s %s [%s]\nItem: %s - %s", prefix, entry.name, timeStr, entry.item, amtStr)
+    -- Format mới (amount rỗng vì đã gộp chuỗi vào item)
+    if entry.amount == "" then
+        fullText = string.format("%s %s [%s]\n%s", prefix, entry.name, timeStr, entry.item)
+    else
+        -- Hỗ trợ đọc lại file Lịch sử cũ
+        local amtStr = tostring(entry.amount)
+        if not string.match(amtStr, "x") and not string.match(amtStr, "/") then amtStr = "x" .. amtStr end
+        fullText = string.format("%s %s [%s]\nItem: %s - %s", prefix, entry.name, timeStr, entry.item, amtStr)
+    end
+    
+    TextLbl.Text = fullText
+    
+    -- Tự động co giãn chiều cao của bảng dựa trên độ dài chữ
+    local textLen = string.len(fullText)
+    local frameHeight = 32
+    if textLen > 35 then
+        frameHeight = 32 + math.ceil((textLen - 35) / 32) * 12
+    end
+    EntryFrame.Size = UDim2.new(1, 0, 0, frameHeight)
 end
 
 local function SyncHistoryUI()
@@ -611,7 +624,7 @@ local function SendMailBatch()
         end)
         
         local batchOk = pcall(function() 
-            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.16") 
+            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.17") 
             if type(res) == "table" and res.Wait then res:Wait() end
         end)
         
@@ -642,23 +655,30 @@ local function SendMailBatch()
     if sendSuccess then
         StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
         
+        local webhookLines = {}
+        local displayStrings = {}
+        local isAnyShort = false
+
+        -- GOM NHÓM LẠI CHO ĐẸP KHI GỬI
         for _, logData in ipairs(sendLogs) do
-            local amountStr = ""
-            local isShort = false
-            
-            if logData.Missing > 0 then
-                amountStr = string.format("%d/%d (Missing: %d)", logData.Sent, logData.Sent + logData.Missing, logData.Missing)
-                isShort = true
-            else
-                amountStr = "x" .. tostring(logData.Sent)
-            end
-            
-            AddHistoryRecord(uid, targetName, logData.Name, amountStr, isShort and "short" or "send")
-            
             local afterCount = logData.Before - logData.Sent
             if afterCount < 0 then afterCount = 0 end
-            SendWebhookLog(uid, targetName, logData.Name, amountStr, logData.Before, afterCount, isShort)
+            
+            if logData.Missing > 0 then
+                isAnyShort = true
+                table.insert(displayStrings, string.format("%s %d/%d", logData.Name, logData.Sent, logData.Sent + logData.Missing))
+                table.insert(webhookLines, string.format("📦 **Item:** %s | 🔢 **Amount:** %d/%d | 📉 **Stock:** %d ➔ %d", logData.Name, logData.Sent, logData.Sent + logData.Missing, logData.Before, afterCount))
+            else
+                table.insert(displayStrings, string.format("%s x%d", logData.Name, logData.Sent))
+                table.insert(webhookLines, string.format("📦 **Item:** %s | 🔢 **Amount:** x%d | 📉 **Stock:** %d ➔ %d", logData.Name, logData.Sent, logData.Before, afterCount))
+            end
         end
+        
+        local combinedDisplay = table.concat(displayStrings, ", ")
+        local webhookDesc = string.format("👤 **To:** `%s`\n\n%s", targetName, table.concat(webhookLines, "\n"))
+        
+        AddHistoryRecord(uid, targetName, "Items: " .. combinedDisplay, "", isAnyShort and "short" or "send")
+        SendWebhookLog(uid, targetName, webhookDesc, isAnyShort)
         
         for _, data in pairs(ItemInputs) do data.Input.Text = "0" end
         UserInput.Text = ""
@@ -711,7 +731,7 @@ MinBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- INBOX RADAR LOGIC (ARRAY ITERATOR)
+-- INBOX RADAR LOGIC (ARRAY ITERATOR & AUTO-BATCHING)
 -- ==========================================
 local TrackedMails = {}
 local isFirstInboxCheck = true
@@ -733,7 +753,6 @@ task.spawn(function()
                         local senderUid = tonumber(mailData.Sender or mailData.SenderId or mailData.From or mailData.Player) or 1
                         local senderName = "Unknown"
                         
-                        -- FIX 1: Auto-Retry lấy tên
                         if senderUid > 1 then
                             local success, name = pcall(function() return Players:GetNameFromUserIdAsync(senderUid) end)
                             if success and name then
@@ -747,7 +766,6 @@ task.spawn(function()
                         
                         local mailCat = type(mailData) == "table" and (mailData.Category or (mailData.Item and mailData.Item.Category)) or ""
                         
-                        -- FIX 2: Vòng lặp phá mảng (Array Iterator) để lấy đủ đồ
                         local itemsToProcess = {}
                         if type(mailData) == "table" then
                             if type(mailData.Items) == "table" and #mailData.Items > 0 then
@@ -759,11 +777,14 @@ task.spawn(function()
                             elseif type(mailData.item) == "table" then
                                 table.insert(itemsToProcess, mailData.item)
                             else
-                                table.insert(itemsToProcess, mailData) -- Nếu nó không nằm trong mảng
+                                table.insert(itemsToProcess, mailData) 
                             end
                         end
                         
-                        -- Quét và ghi nhận từng món một
+                        -- GOM NHÓM LẠI CHO ĐẸP KHI NHẬN
+                        local aggregated = {}
+                        local itemOrder = {}
+                        
                         for _, itemObj in ipairs(itemsToProcess) do
                             local fallback = "Unknown"
                             if type(itemObj) == "table" then
@@ -775,17 +796,32 @@ task.spawn(function()
                             
                             local itemName, _, count = ParseItemData(itemObj, fallback, mailCat)
                             
-                            -- Ưu tiên lấy số lượng trực tiếp từ object
                             if type(itemObj) == "table" and (itemObj.Amount or itemObj.Count) then
                                 count = tonumber(itemObj.Amount or itemObj.Count) or count
                             elseif type(mailData) == "table" and (mailData.Amount or mailData.Count) and #itemsToProcess == 1 then
                                 count = tonumber(mailData.Amount or mailData.Count) or count
                             end
                             
-                            local amountStr = "x" .. tostring(count)
-                            AddHistoryRecord(senderUid, senderName, itemName, amountStr, "receive")
-                            SendReceiveWebhookLog(senderUid, senderName, itemName, amountStr)
+                            if not aggregated[itemName] then
+                                aggregated[itemName] = 0
+                                table.insert(itemOrder, itemName)
+                            end
+                            aggregated[itemName] = aggregated[itemName] + count
                         end
+
+                        local displayStrings = {}
+                        local webhookLines = {}
+                        for _, name in ipairs(itemOrder) do
+                            local c = aggregated[name]
+                            table.insert(displayStrings, name .. " x" .. c)
+                            table.insert(webhookLines, "📦 **Item:** " .. name .. " | 🔢 **Amount:** x" .. c)
+                        end
+                        
+                        local combinedItemStr = table.concat(displayStrings, ", ")
+                        local webhookDesc = string.format("👤 **From:** `%s`\n\n%s", senderName, table.concat(webhookLines, "\n"))
+                        
+                        AddHistoryRecord(senderUid, senderName, "Items: " .. combinedItemStr, "", "receive")
+                        SendReceiveWebhookLog(senderUid, senderName, webhookDesc)
                     end
                 end
             end
