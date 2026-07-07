@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V1.17 - SMART AUTO-BATCHING & DYNAMIC UI
+-- GIFT VIP CTHINH MAILBOX V1.18 - SMART CATEGORY TABS (FILTER)
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -59,7 +59,7 @@ local function SendWebhookLog(uid, targetName, description, isShort)
                 ["color"] = embedColor,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.17 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.18 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -86,7 +86,7 @@ local function SendReceiveWebhookLog(uid, senderName, description)
                 ["color"] = 16766720,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.17 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.18 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -94,15 +94,15 @@ local function SendReceiveWebhookLog(uid, senderName, description)
 end
 
 -- ==========================================
--- UI SETUP (ULTRA-NANO)
+-- UI SETUP (WITH TABS)
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.17"
+ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.18"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 270, 0, 290) 
-MainFrame.Position = UDim2.new(0.5, -250, 0.5, -145) 
+MainFrame.Size = UDim2.new(0, 270, 0, 320) -- Nới chiều cao để chứa Tab
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -160) 
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.Active = true
 MainFrame.Draggable = true 
@@ -110,7 +110,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "GIFT VIP CTHINH V1.17"
+Title.Text = "GIFT VIP CTHINH V1.18"
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
@@ -188,7 +188,7 @@ local function RenderHistoryEntry(entry)
     TextLbl.Font = Enum.Font.Gotham
     TextLbl.TextSize = 10
     TextLbl.TextXAlignment = Enum.TextXAlignment.Left
-    TextLbl.TextWrapped = true -- Cho phép tự động xuống dòng
+    TextLbl.TextWrapped = true
     
     local prefix = "To:"
     if entry.type == "receive" then
@@ -208,24 +208,18 @@ local function RenderHistoryEntry(entry)
     local timeStr = os.date("%H:%M", entry.time or os.time())
     local fullText = ""
     
-    -- Format mới (amount rỗng vì đã gộp chuỗi vào item)
     if entry.amount == "" then
         fullText = string.format("%s %s [%s]\n%s", prefix, entry.name, timeStr, entry.item)
     else
-        -- Hỗ trợ đọc lại file Lịch sử cũ
         local amtStr = tostring(entry.amount)
         if not string.match(amtStr, "x") and not string.match(amtStr, "/") then amtStr = "x" .. amtStr end
         fullText = string.format("%s %s [%s]\nItem: %s - %s", prefix, entry.name, timeStr, entry.item, amtStr)
     end
     
     TextLbl.Text = fullText
-    
-    -- Tự động co giãn chiều cao của bảng dựa trên độ dài chữ
     local textLen = string.len(fullText)
     local frameHeight = 32
-    if textLen > 35 then
-        frameHeight = 32 + math.ceil((textLen - 35) / 32) * 12
-    end
+    if textLen > 35 then frameHeight = 32 + math.ceil((textLen - 35) / 32) * 12 end
     EntryFrame.Size = UDim2.new(1, 0, 0, frameHeight)
 end
 
@@ -263,7 +257,7 @@ LoadHistoryFromFile()
 SyncHistoryUI()
 
 -- ==========================================
--- MAIN APP UI
+-- MAIN APP UI & TABS
 -- ==========================================
 local TradeFrame = Instance.new("Frame", MainFrame)
 TradeFrame.Size = UDim2.new(1, 0, 1, -30)
@@ -280,9 +274,43 @@ UserInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 UserInput.TextSize = 11
 Instance.new("UICorner", UserInput)
 
+-- HỆ THỐNG FILTER TABS
+local FilterFrame = Instance.new("Frame", TradeFrame)
+FilterFrame.Size = UDim2.new(0, 250, 0, 22)
+FilterFrame.Position = UDim2.new(0.5, -125, 0, 38)
+FilterFrame.BackgroundTransparency = 1
+
+local filters = {"All", "Seeds", "Pets", "Others"}
+local filterBtns = {}
+local CurrentFilter = "All"
+
+local RefreshInventoryUI -- Khai báo trước để Tab gọi
+
+for i, f in ipairs(filters) do
+    local btn = Instance.new("TextButton", FilterFrame)
+    btn.Size = UDim2.new(0.25, -2, 1, 0)
+    btn.Position = UDim2.new((i-1)*0.25, 1, 0, 0)
+    btn.Text = f
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 10
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.BackgroundColor3 = (f == "All") and Color3.fromRGB(0, 150, 255) or Color3.fromRGB(40, 40, 40)
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+    filterBtns[f] = btn
+
+    btn.MouseButton1Click:Connect(function()
+        CurrentFilter = f
+        for k, b in pairs(filterBtns) do
+            b.BackgroundColor3 = (k == CurrentFilter) and Color3.fromRGB(0, 150, 255) or Color3.fromRGB(40, 40, 40)
+        end
+        RefreshInventoryUI()
+    end)
+end
+
+-- Vùng chứa List
 local Scroll = Instance.new("ScrollingFrame", TradeFrame)
 Scroll.Size = UDim2.new(0, 260, 0, 115)
-Scroll.Position = UDim2.new(0.5, -130, 0, 38)
+Scroll.Position = UDim2.new(0.5, -130, 0, 65)
 Scroll.BackgroundTransparency = 1
 Scroll.ScrollBarThickness = 2
 local ListLayout = Instance.new("UIListLayout", Scroll)
@@ -290,7 +318,7 @@ ListLayout.Padding = UDim.new(0, 4)
 
 local StatusLabel = Instance.new("TextLabel", TradeFrame)
 StatusLabel.Size = UDim2.new(1, 0, 0, 20)
-StatusLabel.Position = UDim2.new(0, 0, 0, 160)
+StatusLabel.Position = UDim2.new(0, 0, 0, 185)
 StatusLabel.Text = "Ready!"
 StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 StatusLabel.BackgroundTransparency = 1
@@ -298,7 +326,7 @@ StatusLabel.TextSize = 10
 
 local ClaimAllBtn = Instance.new("TextButton", TradeFrame)
 ClaimAllBtn.Size = UDim2.new(0, 250, 0, 32)
-ClaimAllBtn.Position = UDim2.new(0.5, -125, 0, 185)
+ClaimAllBtn.Position = UDim2.new(0.5, -125, 0, 210)
 ClaimAllBtn.Text = "🎁 CLAIM ALL"
 ClaimAllBtn.BackgroundColor3 = Color3.fromRGB(130, 0, 220)
 ClaimAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -308,7 +336,7 @@ Instance.new("UICorner", ClaimAllBtn)
 
 local StartBtn = Instance.new("TextButton", TradeFrame)
 StartBtn.Size = UDim2.new(0, 250, 0, 32)
-StartBtn.Position = UDim2.new(0.5, -125, 0, 222)
+StartBtn.Position = UDim2.new(0.5, -125, 0, 247)
 StartBtn.Text = "🚀 GỬI (SEND)"
 StartBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
 StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -317,7 +345,7 @@ StartBtn.TextSize = 11
 Instance.new("UICorner", StartBtn)
 
 -- ==========================================
--- PARSER: SMART VARIANT & TRUE NAME EXTRACTOR
+-- PARSER: EXTRACTOR & CATEGORY TAGGER
 -- ==========================================
 local function isUUID(str)
     return type(str) == "string" and string.match(str, "%x%x%x%x%x%x%x%x%-") ~= nil
@@ -357,6 +385,7 @@ end
 local function ParseItemData(itemData, fallbackID, categoryName)
     local count = 0
     local sendKey = fallbackID
+    local filterType = "Others"
     
     local catStr = type(categoryName) == "string" and string.lower(categoryName) or ""
     local itemCatStr = type(itemData) == "table" and type(itemData.Category) == "string" and string.lower(itemData.Category) or ""
@@ -367,8 +396,16 @@ local function ParseItemData(itemData, fallbackID, categoryName)
         local bName = tostring(fallbackID)
         local lowerBName = string.lower(bName)
         local isKnownSeed = (lowerBName == "strawberry" or lowerBName == "mega" or lowerBName == "coin" or lowerBName == "diamond" or lowerBName == "potion" or lowerBName == "mushroom")
-        if (isSeedCategory or isKnownSeed) and not isPetCategory and not string.find(lowerBName, "seed") then bName = bName .. " Seed" end
-        return bName, bName, tonumber(itemData) or 0, fallbackID
+        
+        if (isSeedCategory or isKnownSeed) and not isPetCategory and not string.find(lowerBName, "seed") then 
+            bName = bName .. " Seed" 
+        end
+        
+        -- Phân loại bộ lọc
+        if string.find(string.lower(bName), "seed") then filterType = "Seeds"
+        elseif isPetCategory or isUUID(fallbackID) then filterType = "Pets" end
+        
+        return bName, bName, tonumber(itemData) or 0, fallbackID, filterType
     end
 
     local d = itemData._data or itemData
@@ -412,16 +449,20 @@ local function ParseItemData(itemData, fallbackID, categoryName)
     local hash = name
     sendKey = itemData.ItemKey or itemData.id or fallbackID
     
-    return name, hash, count, sendKey
+    -- XÁC ĐỊNH FILTER TYPE
+    if string.find(string.lower(name), "seed") or isSeedCategory or isKnownSeed then
+        filterType = "Seeds"
+    elseif isPetCategory or isUUID(fallbackID) or #mods > 0 or baseName == "Pet" then
+        filterType = "Pets"
+    end
+    
+    return name, hash, count, sendKey, filterType
 end
 
 -- ==========================================
--- DYNAMIC INVENTORY LOGIC
+-- DYNAMIC INVENTORY LOGIC (WITH FILTER)
 -- ==========================================
-local ItemInputs = {}
-local isRefreshing = false
-
-local function RefreshInventoryUI()
+function RefreshInventoryUI()
     if isRefreshing then return end 
     isRefreshing = true
     
@@ -444,18 +485,15 @@ local function RefreshInventoryUI()
             local iterCat = (type(items) == "table" and not items.id and not items.ItemKey) and category or catName
 
             for itemID, itemData in pairs(iterTable) do
-                local name, hash, count, sendKey = ParseItemData(itemData, itemID, iterCat)
+                local name, hash, count, sendKey, filterType = ParseItemData(itemData, itemID, iterCat)
                 
                 if count > 0 then
                     if not AggregatedItems[hash] then
-                        AggregatedItems[hash] = { DisplayName = name, Total = 0, RawItems = {} }
+                        AggregatedItems[hash] = { DisplayName = name, Total = 0, FilterType = filterType, RawItems = {} }
                     end
                     AggregatedItems[hash].Total = AggregatedItems[hash].Total + count
                     table.insert(AggregatedItems[hash].RawItems, {
-                        DictKey = itemID,
-                        Category = iterCat,
-                        ItemKey = sendKey,
-                        Available = count
+                        DictKey = itemID, Category = iterCat, ItemKey = sendKey, Available = count
                     })
                 end
             end
@@ -468,43 +506,54 @@ local function RefreshInventoryUI()
     for hash, data in pairs(AggregatedItems) do
         trackedHashes[hash] = nil
         
-        if not ItemInputs[hash] then
-            local Row = Instance.new("Frame", Scroll)
-            Row.Size = UDim2.new(1, -10, 0, 26)
-            Row.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-            Instance.new("UICorner", Row)
+        -- CHECK FILTER
+        local isMatch = (CurrentFilter == "All" or data.FilterType == CurrentFilter)
+        
+        if isMatch then
+            if not ItemInputs[hash] then
+                local Row = Instance.new("Frame", Scroll)
+                Row.Size = UDim2.new(1, -10, 0, 26)
+                Row.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                Instance.new("UICorner", Row)
 
-            local NameLabel = Instance.new("TextLabel", Row)
-            NameLabel.Size = UDim2.new(0.5, 0, 1, 0)
-            NameLabel.Position = UDim2.new(0.05, 0, 0, 0)
-            NameLabel.Text = data.DisplayName
-            NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-            NameLabel.TextXAlignment = Enum.TextXAlignment.Left
-            NameLabel.TextSize = 10
-            NameLabel.BackgroundTransparency = 1
+                local NameLabel = Instance.new("TextLabel", Row)
+                NameLabel.Size = UDim2.new(0.5, 0, 1, 0)
+                NameLabel.Position = UDim2.new(0.05, 0, 0, 0)
+                NameLabel.Text = data.DisplayName
+                NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+                NameLabel.TextSize = 10
+                NameLabel.BackgroundTransparency = 1
 
-            local CountLabel = Instance.new("TextLabel", Row)
-            CountLabel.Size = UDim2.new(0.2, 0, 1, 0)
-            CountLabel.Position = UDim2.new(0.55, 0, 0, 0)
-            CountLabel.Text = "(" .. data.Total .. ")"
-            CountLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-            CountLabel.TextSize = 10
-            CountLabel.BackgroundTransparency = 1
+                local CountLabel = Instance.new("TextLabel", Row)
+                CountLabel.Size = UDim2.new(0.2, 0, 1, 0)
+                CountLabel.Position = UDim2.new(0.55, 0, 0, 0)
+                CountLabel.Text = "(" .. data.Total .. ")"
+                CountLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+                CountLabel.TextSize = 10
+                CountLabel.BackgroundTransparency = 1
 
-            local AmountInp = Instance.new("TextBox", Row)
-            AmountInp.Size = UDim2.new(0.2, 0, 0.8, 0)
-            AmountInp.Position = UDim2.new(0.75, 0, 0.1, 0)
-            AmountInp.Text = "0"
-            AmountInp.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-            AmountInp.TextColor3 = Color3.fromRGB(0, 255, 127)
-            AmountInp.TextSize = 10
-            Instance.new("UICorner", AmountInp)
+                local AmountInp = Instance.new("TextBox", Row)
+                AmountInp.Size = UDim2.new(0.2, 0, 0.8, 0)
+                AmountInp.Position = UDim2.new(0.75, 0, 0.1, 0)
+                AmountInp.Text = "0"
+                AmountInp.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                AmountInp.TextColor3 = Color3.fromRGB(0, 255, 127)
+                AmountInp.TextSize = 10
+                Instance.new("UICorner", AmountInp)
 
-            ItemInputs[hash] = { UI = Row, Input = AmountInp, Label = CountLabel, RawItems = data.RawItems, DisplayName = data.DisplayName }
+                ItemInputs[hash] = { UI = Row, Input = AmountInp, Label = CountLabel, RawItems = data.RawItems, DisplayName = data.DisplayName }
+            else
+                ItemInputs[hash].UI.Visible = true
+                ItemInputs[hash].Label.Text = "(" .. data.Total .. ")"
+                ItemInputs[hash].RawItems = data.RawItems 
+            end
         else
-            ItemInputs[hash].UI.Visible = true
-            ItemInputs[hash].Label.Text = "(" .. data.Total .. ")"
-            ItemInputs[hash].RawItems = data.RawItems 
+            -- Ẩn đi nếu không khớp Tab (nhưng KHÔNG xóa số lượng đã nhập)
+            if ItemInputs[hash] then
+                ItemInputs[hash].UI.Visible = false
+                ItemInputs[hash].RawItems = data.RawItems
+            end
         end
     end
     
@@ -624,7 +673,7 @@ local function SendMailBatch()
         end)
         
         local batchOk = pcall(function() 
-            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.17") 
+            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.18") 
             if type(res) == "table" and res.Wait then res:Wait() end
         end)
         
@@ -659,7 +708,6 @@ local function SendMailBatch()
         local displayStrings = {}
         local isAnyShort = false
 
-        -- GOM NHÓM LẠI CHO ĐẸP KHI GỬI
         for _, logData in ipairs(sendLogs) do
             local afterCount = logData.Before - logData.Sent
             if afterCount < 0 then afterCount = 0 end
@@ -725,13 +773,13 @@ MinBtn.MouseButton1Click:Connect(function()
     else
         TradeFrame.Visible = true
         HistoryFrame.Visible = true
-        MainFrame.Size = UDim2.new(0, 270, 0, 290)
+        MainFrame.Size = UDim2.new(0, 270, 0, 320)
         MinBtn.Text = "-"
     end
 end)
 
 -- ==========================================
--- INBOX RADAR LOGIC (ARRAY ITERATOR & AUTO-BATCHING)
+-- INBOX RADAR LOGIC 
 -- ==========================================
 local TrackedMails = {}
 local isFirstInboxCheck = true
@@ -781,7 +829,6 @@ task.spawn(function()
                             end
                         end
                         
-                        -- GOM NHÓM LẠI CHO ĐẸP KHI NHẬN
                         local aggregated = {}
                         local itemOrder = {}
                         
