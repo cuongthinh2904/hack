@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V3.1 - ENGLISH & AUTO BATCH
+-- GIFT VIP CTHINH MAILBOX V3.3 - ENGLISH, AUTO BATCH & REAL SERVER LIMIT CHECK
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -61,7 +61,7 @@ local function SendWebhookLog(uid, targetName, description, isShort)
                 ["color"] = embedColor,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V3 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V3.3 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -88,7 +88,7 @@ local function SendReceiveWebhookLog(uid, senderName, description)
                 ["color"] = 16766720,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V3 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V3.3 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -103,8 +103,8 @@ ScreenGui.Name = "GiftVipCThinh_Mailbox_V3"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 270, 0, 290) 
-MainFrame.Position = UDim2.new(0.5, -250, 0.5, -145) 
+MainFrame.Size = UDim2.new(0, 270, 0, 310) 
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -155) 
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.Active = true
 MainFrame.Draggable = true 
@@ -112,7 +112,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "GIFT VIP CTHINH V3"
+Title.Text = "GIFT VIP CTHINH V3.3"
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
@@ -198,11 +198,11 @@ local function RenderHistoryEntry(entry)
     if entry.type == "online_receive" then
         EntryFrame.BackgroundColor3 = Color3.fromRGB(10, 40, 80) 
         TextLbl.TextColor3 = Color3.fromRGB(120, 200, 255) 
-        fullText = string.format("🔔 Gift received (Online) [%s]\nFrom: %s\nItems: %s", timeStr, entry.name, entry.item)
+        fullText = string.format("🔔 Gift received (Online) [%s]\nFrom: %s\nItem: %s", timeStr, entry.name, entry.item)
     elseif entry.type == "claim" then
         EntryFrame.BackgroundColor3 = Color3.fromRGB(80, 20, 60) 
         TextLbl.TextColor3 = Color3.fromRGB(255, 130, 200) 
-        fullText = string.format("💖 Claimed successfully [%s]\nFrom: %s\nItems: %s", timeStr, entry.name, entry.item)
+        fullText = string.format("💖 Claimed successfully [%s]\nFrom: %s\nItem: %s", timeStr, entry.name, entry.item)
     elseif entry.type == "short" then
         EntryFrame.BackgroundColor3 = Color3.fromRGB(60, 15, 15) 
         TextLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
@@ -299,6 +299,82 @@ StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 StartBtn.Font = Enum.Font.GothamBold
 StartBtn.TextSize = 11
 Instance.new("UICorner", StartBtn)
+
+-- ==========================================
+-- REAL SERVER DAILY LIMIT MANAGER + MAGNIFYING GLASS
+-- ==========================================
+local function GetRealServerMailboxCount()
+    local count = 0
+    pcall(function()
+        local rep = PS:WaitForLocalReplica(1)
+        if rep and rep.Data then
+            -- Check common known keys first
+            if type(rep.Data.MailboxSends) == "number" then
+                count = rep.Data.MailboxSends
+            elseif type(rep.Data.DailyMailboxSends) == "number" then
+                count = rep.Data.DailyMailboxSends
+            elseif rep.Data.Mailbox and type(rep.Data.Mailbox.Sends) == "number" then
+                count = rep.Data.Mailbox.Sends
+            else
+                -- Deep scan fallback for obfuscated keys
+                for k, v in pairs(rep.Data) do
+                    if type(k) == "string" and string.find(string.lower(k), "mailbox") and type(v) == "number" then
+                        count = v
+                        break
+                    end
+                end
+            end
+        end
+    end)
+    return tonumber(count) or 0
+end
+
+local DailyLimitLabel = Instance.new("TextLabel", TradeFrame)
+DailyLimitLabel.Size = UDim2.new(0, 150, 0, 15)
+DailyLimitLabel.Position = UDim2.new(0.5, -95, 0, 258)
+DailyLimitLabel.Text = "📮 Daily Limit: Checking..."
+DailyLimitLabel.TextColor3 = Color3.fromRGB(0, 200, 255)
+DailyLimitLabel.BackgroundTransparency = 1
+DailyLimitLabel.TextSize = 10
+DailyLimitLabel.Font = Enum.Font.Gotham
+
+local CheckLimitBtn = Instance.new("TextButton", TradeFrame)
+CheckLimitBtn.Size = UDim2.new(0, 25, 0, 20)
+CheckLimitBtn.Position = UDim2.new(0.5, 60, 0, 255)
+CheckLimitBtn.Text = "🔍"
+CheckLimitBtn.BackgroundTransparency = 1
+CheckLimitBtn.TextSize = 14
+
+local function UpdateDailyUI()
+    local currentSends = GetRealServerMailboxCount()
+    DailyLimitLabel.Text = string.format("📮 Daily Limit: %d/50", currentSends)
+    if currentSends >= 50 then
+        DailyLimitLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+    else
+        DailyLimitLabel.TextColor3 = Color3.fromRGB(0, 200, 255)
+    end
+    return currentSends
+end
+
+CheckLimitBtn.MouseButton1Click:Connect(function()
+    StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    StatusLabel.Text = "Scanning Server Data..."
+    
+    local currentSends = UpdateDailyUI()
+    if currentSends >= 50 then
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+        StatusLabel.Text = string.format("🔍 Acc reached limit! (%d/50)", currentSends)
+    else
+        StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
+        StatusLabel.Text = string.format("🔍 Acc sent: %d/50", currentSends)
+    end
+end)
+
+-- Initial UI Update
+task.spawn(function()
+    task.wait(2)
+    UpdateDailyUI()
+end)
 
 -- ==========================================
 -- PARSER: SMART VARIANT & TRUE NAME EXTRACTOR
@@ -586,6 +662,14 @@ local function ClaimAllMail()
 end
 
 local function SendMailBatch()
+    -- Check Server Data before attempting anything
+    local currentServerSends = UpdateDailyUI()
+    if currentServerSends >= 50 then
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+        StatusLabel.Text = "ERROR: Reached 50/50 server limit today!"
+        return
+    end
+
     local targetName = UserInput.Text
     if targetName == "" then StatusLabel.Text = "Enter Username!" return end
     
@@ -645,8 +729,15 @@ local function SendMailBatch()
     local totalBatches = math.ceil(#plan / 20)
     local anyItemSent = false
     
-    -- BATCH SENDING LOOP WITH DYNAMIC PROGRESS REPORT & ANTI-SPAM
+    -- BATCH SENDING LOOP WITH REAL SERVER DATA CHECK & ANTI-SPAM
     for i = 1, #plan, 20 do
+        local preCheck = UpdateDailyUI()
+        if preCheck >= 50 then
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+            StatusLabel.Text = "Daily limit reached (50/50). Stopping."
+            break
+        end
+
         local batch = {}
         local batchPlan = {}
         for j = i, math.min(i + 19, #plan) do 
@@ -670,7 +761,7 @@ local function SendMailBatch()
         end
         
         local batchOk = pcall(function() 
-            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V3") 
+            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V3.3") 
             if type(res) == "table" and res.Wait then res:Wait() end
         end)
         
@@ -698,11 +789,15 @@ local function SendMailBatch()
         
         if not hasDeduction or not batchOk then
             StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-            StatusLabel.Text = "ERROR: Daily limit reached or delay issue."
+            StatusLabel.Text = "ERROR: Failed to send or game limit hit."
             break
         else
+            -- Force UI update from Server Data after batch success
+            task.wait(1)
+            UpdateDailyUI()
+            
             StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
-            if currentBatchNum < totalBatches then
+            if currentBatchNum < totalBatches and UpdateDailyUI() < 50 then
                 for countdown = 5, 1, -1 do
                     StatusLabel.Text = string.format("Success %d batch(es)! Waiting for batch %d (%ds)...", currentBatchNum, currentBatchNum + 1, countdown)
                     task.wait(1)
@@ -714,7 +809,7 @@ local function SendMailBatch()
     -- AGGREGATE EVERYTHING & SAVE TO A SINGLE HISTORY ENTRY
     if anyItemSent then
         StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
-        if not string.match(StatusLabel.Text, "ERROR") then
+        if not string.match(StatusLabel.Text, "ERROR") and not string.match(StatusLabel.Text, "limit") then
             if totalBatches > 1 then
                 StatusLabel.Text = string.format("✅ SUCCESSFULLY SENT %d ITEMS!", #plan)
             else
@@ -744,6 +839,7 @@ local function SendMailBatch()
         local combinedDisplay = table.concat(displayStrings, ", ")
         local webhookDesc = string.format("👤 **To:** `%s`\n\n%s", targetName, table.concat(webhookLines, "\n"))
         
+        -- FIXXED: Removed "Items: " to stop double-text
         AddHistoryRecord(uid, targetName, combinedDisplay, "", isAnyShort and "short" or "send")
         SendWebhookLog(uid, targetName, webhookDesc, isAnyShort)
         
@@ -791,7 +887,7 @@ MinBtn.MouseButton1Click:Connect(function()
     else
         TradeFrame.Visible = true
         HistoryFrame.Visible = true
-        MainFrame.Size = UDim2.new(0, 270, 0, 290)
+        MainFrame.Size = UDim2.new(0, 270, 0, 310)
         MinBtn.Text = "-"
     end
 end)
@@ -889,11 +985,18 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- REAL-TIME BACKGROUND SYNC
+-- REAL-TIME BACKGROUND SYNC (Data & UI)
 -- ==========================================
 task.spawn(function() RefreshInventoryUI() end)
 task.spawn(function()
     while task.wait(1) do
         if TradeFrame.Visible and not isMinimized then RefreshInventoryUI() end
+    end
+end)
+
+-- Tự động làm mới Daily UI ngầm (15 giây 1 lần để tránh nặng máy)
+task.spawn(function()
+    while task.wait(15) do
+        UpdateDailyUI()
     end
 end)
