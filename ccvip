@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V2.1 - CUSTOM COLORS & CLAIM LOGGING
+-- GIFT VIP CTHINH MAILBOX V3 - ENGLISH UI & UNIFIED BATCH LOGGER
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -61,7 +61,7 @@ local function SendWebhookLog(uid, targetName, description, isShort)
                 ["color"] = embedColor,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V2.1 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V3 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -88,7 +88,7 @@ local function SendReceiveWebhookLog(uid, senderName, description)
                 ["color"] = 16766720,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V2.1 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V3 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -96,10 +96,10 @@ local function SendReceiveWebhookLog(uid, senderName, description)
 end
 
 -- ==========================================
--- UI SETUP (ULTRA-NANO)
+-- UI SETUP
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "GiftVipCThinh_Mailbox_V2.1"
+ScreenGui.Name = "GiftVipCThinh_Mailbox_V3"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -112,7 +112,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "GIFT VIP CTHINH V2.1"
+Title.Text = "GIFT VIP CTHINH V3"
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
@@ -195,47 +195,37 @@ local function RenderHistoryEntry(entry)
     local timeStr = os.date("%H:%M", entry.time or os.time())
     local fullText = ""
     
-    -- TÙY CHỈNH MÀU SẮC VÀ NỘI DUNG THEO YÊU CẦU
+    -- ENGLISH TRANSLATION FOR LOGS
     if entry.type == "online_receive" then
-        EntryFrame.BackgroundColor3 = Color3.fromRGB(10, 40, 80) -- Xanh dương đậm
-        TextLbl.TextColor3 = Color3.fromRGB(120, 200, 255) -- Xanh dương sáng
-        fullText = string.format("🔔 Đã có người tặng cho bạn lúc bạn online [%s]\nTừ: %s\nVật phẩm: %s", timeStr, entry.name, entry.item)
-        
+        EntryFrame.BackgroundColor3 = Color3.fromRGB(10, 40, 80) 
+        TextLbl.TextColor3 = Color3.fromRGB(120, 200, 255) 
+        fullText = string.format("🔔 Gift received while online [%s]\nFrom: %s\nItems: %s", timeStr, entry.name, entry.item)
     elseif entry.type == "claim" then
-        EntryFrame.BackgroundColor3 = Color3.fromRGB(80, 20, 60) -- Hồng đậm
-        TextLbl.TextColor3 = Color3.fromRGB(255, 130, 200) -- Hồng sáng
-        fullText = string.format("💖 Bạn vừa nhận thành công [%s]\nTừ: %s\nSố lượng vật phẩm: %s", timeStr, entry.name, entry.item)
-        
+        EntryFrame.BackgroundColor3 = Color3.fromRGB(80, 20, 60) 
+        TextLbl.TextColor3 = Color3.fromRGB(255, 130, 200) 
+        fullText = string.format("💖 Claimed successfully [%s]\nFrom: %s\nItems: %s", timeStr, entry.name, entry.item)
     elseif entry.type == "short" then
-        EntryFrame.BackgroundColor3 = Color3.fromRGB(60, 15, 15) -- Đỏ sẫm
+        EntryFrame.BackgroundColor3 = Color3.fromRGB(60, 15, 15) 
         TextLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
         local amtStr = (entry.amount == "") and "" or (" - " .. tostring(entry.amount))
         fullText = string.format("To: %s [%s]\nItem: %s%s", entry.name, timeStr, entry.item, amtStr)
-        
-    else -- "send" hoặc các type cũ
-        EntryFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Xám
+    else 
+        EntryFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30) 
         TextLbl.TextColor3 = Color3.fromRGB(220, 220, 220)
         local amtStr = (entry.amount == "") and "" or (" - " .. tostring(entry.amount))
         fullText = string.format("To: %s [%s]\nItem: %s%s", entry.name, timeStr, entry.item, amtStr)
     end
     
     TextLbl.Text = fullText
-    
-    -- Tự động giãn khung dựa trên số dòng và độ dài chữ
     local lineBreaks = select(2, string.gsub(fullText, "\n", ""))
     local textLen = string.len(fullText)
     local frameHeight = 35 + (lineBreaks * 10)
-    
-    if textLen > 45 then
-        frameHeight = frameHeight + math.ceil((textLen - 45) / 35) * 12
-    end
+    if textLen > 45 then frameHeight = frameHeight + math.ceil((textLen - 45) / 35) * 12 end
     EntryFrame.Size = UDim2.new(1, 0, 0, frameHeight)
 end
 
 local function SyncHistoryUI()
-    for _, child in ipairs(HistoryScroll:GetChildren()) do
-        if child:IsA("Frame") then child:Destroy() end
-    end
+    for _, child in ipairs(HistoryScroll:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
     local currentTime = os.time()
     local validHistory = {}
     for _, entry in ipairs(LocalHistory) do
@@ -244,10 +234,7 @@ local function SyncHistoryUI()
             RenderHistoryEntry(entry)
         end
     end
-    if #validHistory ~= #LocalHistory then
-        LocalHistory = validHistory
-        SaveHistoryToFile()
-    end
+    if #validHistory ~= #LocalHistory then LocalHistory = validHistory; SaveHistoryToFile() end
 end
 
 local function AddHistoryRecord(uid, name, item, amount, hType)
@@ -256,12 +243,7 @@ local function AddHistoryRecord(uid, name, item, amount, hType)
     SyncHistoryUI()
 end
 
-ClearBtn.MouseButton1Click:Connect(function()
-    LocalHistory = {}
-    SaveHistoryToFile()
-    SyncHistoryUI()
-end)
-
+ClearBtn.MouseButton1Click:Connect(function() LocalHistory = {}; SaveHistoryToFile(); SyncHistoryUI() end)
 LoadHistoryFromFile()
 SyncHistoryUI()
 
@@ -277,7 +259,7 @@ TradeFrame.Visible = true
 local UserInput = Instance.new("TextBox", TradeFrame)
 UserInput.Size = UDim2.new(0, 250, 0, 28)
 UserInput.Position = UDim2.new(0.5, -125, 0, 5)
-UserInput.PlaceholderText = "Username nhận..."
+UserInput.PlaceholderText = "Target Username..."
 UserInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 UserInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 UserInput.TextSize = 11
@@ -312,7 +294,7 @@ Instance.new("UICorner", ClaimAllBtn)
 local StartBtn = Instance.new("TextButton", TradeFrame)
 StartBtn.Size = UDim2.new(0, 250, 0, 32)
 StartBtn.Position = UDim2.new(0.5, -125, 0, 222)
-StartBtn.Text = "🚀 GỬI (SEND)"
+StartBtn.Text = "🚀 SEND GIFT"
 StartBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
 StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 StartBtn.Font = Enum.Font.GothamBold
@@ -329,7 +311,6 @@ end
 local function extractRealName(t, fallback)
     if type(t) ~= "table" then return fallback end
     local keys = {"id", "Id", "ItemKey", "itemKey", "Name", "name", "ItemName", "petId", "ItemId"}
-    
     for _, k in ipairs(keys) do
         local v = t[k]
         if type(v) == "string" and string.len(v) > 1 and not isUUID(v) then return v end
@@ -525,11 +506,9 @@ end
 -- ==========================================
 -- MAILBOX FUNCTIONS
 -- ==========================================
-
--- CẬP NHẬT CLAIM TẤT CẢ: LƯU LỊCH SỬ MÀU HỒNG KHI NHẬN
 local function ClaimAllMail()
     ClaimAllBtn.Active = false
-    StatusLabel.Text = "Đang mở hòm thư..."
+    StatusLabel.Text = "Opening mailbox..."
     
     local ok, inbox = pcall(function() 
         local res = Net.Mailbox.OpenInbox:Fire()
@@ -538,7 +517,7 @@ local function ClaimAllMail()
     end)
     
     if not ok or type(inbox) ~= "table" or next(inbox) == nil then
-        StatusLabel.Text = "Hòm thư trống!"
+        StatusLabel.Text = "Mailbox is empty!"
         ClaimAllBtn.Active = true
         return
     end
@@ -546,9 +525,8 @@ local function ClaimAllMail()
     local count = 0
     for mailId, mailData in pairs(inbox) do
         count = count + 1
-        StatusLabel.Text = "Đang nhận #" .. count
+        StatusLabel.Text = "Claiming mail #" .. count .. "..."
         
-        -- Giải mã người gửi
         local senderUid = tonumber(mailData.Sender or mailData.SenderId or mailData.From or mailData.Player) or 1
         local senderName = "Unknown"
         if senderUid > 1 then
@@ -556,7 +534,6 @@ local function ClaimAllMail()
             if senderName == "Unknown" then senderName = tostring(senderUid) end
         end
         
-        -- Phá mảng đồ bên trong để ghi log
         local mailCat = type(mailData) == "table" and (mailData.Category or (mailData.Item and mailData.Item.Category)) or ""
         local itemsToProcess = {}
         if type(mailData) == "table" then
@@ -598,25 +575,23 @@ local function ClaimAllMail()
         end
         local combinedItemStr = table.concat(displayStrings, ", ")
         
-        -- Thực thi nhận
         pcall(function() Net.Mailbox.Claim:Fire(mailId) end)
         
-        -- Ghi vào lịch sử (Màu hồng)
         AddHistoryRecord(senderUid, senderName, combinedItemStr, "", "claim")
         task.wait(0.2)
     end
     
-    StatusLabel.Text = "✅ Đã nhận " .. count .. " thư!"
+    StatusLabel.Text = "✅ Claimed " .. count .. " mails!"
     task.spawn(function() task.wait(0.5); RefreshInventoryUI() end)
     ClaimAllBtn.Active = true
 end
 
 local function SendMailBatch()
     local targetName = UserInput.Text
-    if targetName == "" then StatusLabel.Text = "Nhập Username!" return end
+    if targetName == "" then StatusLabel.Text = "Enter Username!" return end
     
     StartBtn.Active = false
-    StatusLabel.Text = "Tìm UID..."
+    StatusLabel.Text = "Fetching UID..."
     
     local ok, uid = pcall(function() 
         local res = Net.Mailbox.LookupPlayer:Fire(targetName) 
@@ -625,32 +600,40 @@ local function SendMailBatch()
     end)
     
     if not ok or type(uid) ~= "number" or uid <= 0 then
-        StatusLabel.Text = "LỖI: Không thấy user!"
+        StatusLabel.Text = "ERROR: User not found!"
         StartBtn.Active = true
         return
     end
     
     local plan = {}
-    local sendLogs = {}
+    local itemRequests = {} 
     
+    -- XÂY DỰNG TRẠNG THÁI YÊU CẦU & KẾ HOẠCH BATCHING
     for hash, data in pairs(ItemInputs) do
         local requestedVal = math.floor(tonumber(data.Input.Text) or 0)
         
         if requestedVal > 0 then
             local currentTotal = tonumber(string.match(data.Label.Text, "%d+")) or 0
-            local actuallySent = math.min(requestedVal, currentTotal)
-            local missingAmount = requestedVal - actuallySent
+            local actuallySentTarget = math.min(requestedVal, currentTotal)
             
-            if actuallySent > 0 then
-                table.insert(sendLogs, { Name = data.DisplayName, Sent = actuallySent, Missing = missingAmount, Before = currentTotal })
+            if actuallySentTarget > 0 then
+                itemRequests[data.DisplayName] = {
+                    Requested = actuallySentTarget,
+                    Before = currentTotal,
+                    Sent = 0
+                }
                 
-                local remaining = actuallySent
+                local remaining = actuallySentTarget
                 for _, rawItem in ipairs(data.RawItems) do
                     if remaining <= 0 then break end
                     local takeAmount = math.min(remaining, rawItem.Available)
                     
                     table.insert(plan, {
-                        DictKey = rawItem.DictKey, Category = rawItem.Category, ItemKey = rawItem.ItemKey, Count = takeAmount
+                        DictKey = rawItem.DictKey, 
+                        Category = rawItem.Category, 
+                        ItemKey = rawItem.ItemKey, 
+                        Count = takeAmount,
+                        ReadableName = data.DisplayName
                     })
                     remaining = remaining - takeAmount
                 end
@@ -658,72 +641,94 @@ local function SendMailBatch()
         end
     end
     
-    if #plan == 0 then StatusLabel.Text = "Chưa nhập số lượng hợp lệ!" StartBtn.Active = true return end
+    if #plan == 0 then StatusLabel.Text = "Enter valid amount!" StartBtn.Active = true return end
     
-    local sendSuccess = true
+    local totalBatches = math.ceil(#plan / 20)
+    local anyItemSent = false
     
+    -- VÒNG LẶP GỬI BATCHES VỚI PROGRESS REPORT DYNAMIC
     for i = 1, #plan, 20 do
         local batch = {}
-        for j = i, math.min(i + 19, #plan) do table.insert(batch, {Category = plan[j].Category, ItemKey = plan[j].ItemKey, Count = plan[j].Count}) end
+        local batchPlan = {}
+        for j = i, math.min(i + 19, #plan) do 
+            table.insert(batch, {Category = plan[j].Category, ItemKey = plan[j].ItemKey, Count = plan[j].Count}) 
+            table.insert(batchPlan, plan[j])
+        end
         
-        StatusLabel.Text = "Gửi đợt " .. math.ceil(i/20)
-        local checkCat = plan[i].Category
-        local checkDictKey = plan[i].DictKey
+        local currentBatchNum = math.ceil(i/20)
+        StatusLabel.Text = string.format("Sending Batch %d/%d...", currentBatchNum, totalBatches)
         
-        local oldAmount = 0
-        pcall(function()
-            local rep = PS:WaitForLocalReplica(1)
-            local itemData = rep.Data.Inventory and rep.Data.Inventory[checkCat] and rep.Data.Inventory[checkCat][checkDictKey]
-            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkCat] and rep.Data.Pets[checkCat][checkDictKey] end
-            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkDictKey] end
-            if type(itemData) == "table" then oldAmount = tonumber(itemData.Amount or itemData._am or 1) else oldAmount = tonumber(itemData) or 1 end
-        end)
+        local oldAmounts = {}
+        local rep = PS:WaitForLocalReplica(1)
+        for _, pItem in ipairs(batchPlan) do
+            local oldAmt = 0
+            local itemData = rep.Data.Inventory and rep.Data.Inventory[pItem.Category] and rep.Data.Inventory[pItem.Category][pItem.DictKey]
+            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[pItem.Category] and rep.Data.Pets[pItem.Category][pItem.DictKey] end
+            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[pItem.DictKey] end
+            if type(itemData) == "table" then oldAmt = tonumber(itemData.Amount or itemData._am or 1) else oldAmt = tonumber(itemData) or 1 end
+            oldAmounts[pItem.DictKey] = oldAmt
+        end
         
         local batchOk = pcall(function() 
-            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V2.1") 
+            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V3") 
             if type(res) == "table" and res.Wait then res:Wait() end
         end)
         
         task.wait(1.5)
         
-        local currentAmount = 0
-        pcall(function()
-            local rep = PS:WaitForLocalReplica(1)
-            local itemData = rep.Data.Inventory and rep.Data.Inventory[checkCat] and rep.Data.Inventory[checkCat][checkDictKey]
-            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkCat] and rep.Data.Pets[checkCat][checkDictKey] end
-            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkDictKey] end
+        rep = PS:WaitForLocalReplica(1)
+        local hasDeduction = false
+        
+        for _, pItem in ipairs(batchPlan) do
+            local currentAmount = 0
+            local itemData = rep.Data.Inventory and rep.Data.Inventory[pItem.Category] and rep.Data.Inventory[pItem.Category][pItem.DictKey]
+            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[pItem.Category] and rep.Data.Pets[pItem.Category][pItem.DictKey] end
+            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[pItem.DictKey] end
             if itemData then
                 if type(itemData) == "table" then currentAmount = tonumber(itemData.Amount or itemData._am or 1) else currentAmount = tonumber(itemData) or 1 end
             end
-        end)
+            
+            local deducted = oldAmounts[pItem.DictKey] - currentAmount
+            if deducted > 0 then
+                hasDeduction = true
+                anyItemSent = true
+                itemRequests[pItem.ReadableName].Sent = itemRequests[pItem.ReadableName].Sent + deducted
+            end
+        end
         
-        if not batchOk or currentAmount >= oldAmount then
-            sendSuccess = false
+        if not hasDeduction or not batchOk then
             StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-            StatusLabel.Text = "LỖI: Hết lượt (Limit 50)!"
+            StatusLabel.Text = "ERROR: Limit reached (50/day)!"
             break
+        else
+            StatusLabel.Text = string.format("Batch %d/%d Success!", currentBatchNum, totalBatches)
         end
         task.wait(1)
     end
     
-    if sendSuccess then
+    -- TỔNG HỢP TOÀN BỘ VÀ GHI VÀO ĐÚNG 1 Ô LỊCH SỬ DUY NHẤT
+    if anyItemSent then
         StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        if not string.match(StatusLabel.Text, "ERROR") then
+            StatusLabel.Text = "✅ SENT SUCCESSFULLY!"
+        end
         
         local webhookLines = {}
         local displayStrings = {}
         local isAnyShort = false
 
-        for _, logData in ipairs(sendLogs) do
-            local afterCount = logData.Before - logData.Sent
-            if afterCount < 0 then afterCount = 0 end
-            
-            if logData.Missing > 0 then
-                isAnyShort = true
-                table.insert(displayStrings, string.format("%s %d/%d", logData.Name, logData.Sent, logData.Sent + logData.Missing))
-                table.insert(webhookLines, string.format("📦 **Item:** %s | 🔢 **Amount:** %d/%d | 📉 **Stock:** %d ➔ %d", logData.Name, logData.Sent, logData.Sent + logData.Missing, logData.Before, afterCount))
-            else
-                table.insert(displayStrings, string.format("%s x%d", logData.Name, logData.Sent))
-                table.insert(webhookLines, string.format("📦 **Item:** %s | 🔢 **Amount:** x%d | 📉 **Stock:** %d ➔ %d", logData.Name, logData.Sent, logData.Before, afterCount))
+        for name, data in pairs(itemRequests) do
+            if data.Sent > 0 then
+                local finalAfter = math.max(0, data.Before - data.Sent)
+                
+                if data.Sent < data.Requested then
+                    isAnyShort = true
+                    table.insert(displayStrings, string.format("%s %d/%d", name, data.Sent, data.Requested))
+                    table.insert(webhookLines, string.format("📦 **Item:** %s | 🔢 **Amount:** %d/%d | 📉 **Stock:** %d ➔ %d", name, data.Sent, data.Requested, data.Before, finalAfter))
+                else
+                    table.insert(displayStrings, string.format("%s x%d", name, data.Sent))
+                    table.insert(webhookLines, string.format("📦 **Item:** %s | 🔢 **Amount:** x%d | 📉 **Stock:** %d ➔ %d", name, data.Sent, data.Before, finalAfter))
+                end
             end
         end
         
@@ -735,7 +740,6 @@ local function SendMailBatch()
         
         for _, data in pairs(ItemInputs) do data.Input.Text = "0" end
         UserInput.Text = ""
-        StatusLabel.Text = "✅ GỬI THÀNH CÔNG!"
         
         task.spawn(function() task.wait(0.5); RefreshInventoryUI() end)
     end
@@ -784,7 +788,7 @@ MinBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- INBOX RADAR LOGIC (ONLINE RECEIVE - XANH DƯƠNG)
+-- INBOX RADAR LOGIC (ONLINE RECEIVE)
 -- ==========================================
 local TrackedMails = {}
 local isFirstInboxCheck = true
@@ -864,7 +868,6 @@ task.spawn(function()
                             local combinedItemStr = table.concat(displayStrings, ", ")
                             local webhookDesc = string.format("👤 **From:** `%s`\n\n%s", senderName, table.concat(webhookLines, "\n"))
                             
-                            -- ĐỔI TYPE THÀNH "online_receive" (MÀU XANH DƯƠNG)
                             AddHistoryRecord(senderUid, senderName, combinedItemStr, "", "online_receive")
                             SendReceiveWebhookLog(senderUid, senderName, webhookDesc)
                         end
