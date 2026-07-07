@@ -102,4 +102,722 @@ ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Size = UDim2.new(0, 270, 0, 290) 
-MainFrame.Position = UDim2.new(0.5, -
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -145) 
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.Active = true
+MainFrame.Draggable = true 
+Instance.new("UICorner", MainFrame)
+
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Text = "GIFT VIP CTHINH V2"
+Title.TextColor3 = Color3.fromRGB(0, 255, 150)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 11
+Title.BackgroundTransparency = 1
+
+local HistoryFrame = Instance.new("Frame", MainFrame)
+HistoryFrame.Size = UDim2.new(0, 210, 1, 0)
+HistoryFrame.Position = UDim2.new(1, 5, 0, 0)
+HistoryFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Instance.new("UICorner", HistoryFrame)
+
+local HistoryTitle = Instance.new("TextLabel", HistoryFrame)
+HistoryTitle.Size = UDim2.new(1, 0, 0, 30)
+HistoryTitle.Text = " HISTORY"
+HistoryTitle.TextColor3 = Color3.fromRGB(0, 200, 255)
+HistoryTitle.Font = Enum.Font.GothamBold
+HistoryTitle.TextSize = 12
+HistoryTitle.TextXAlignment = Enum.TextXAlignment.Left
+HistoryTitle.BackgroundTransparency = 1
+
+local ClearBtn = Instance.new("TextButton", HistoryFrame)
+ClearBtn.Size = UDim2.new(0, 50, 0, 20)
+ClearBtn.Position = UDim2.new(1, -55, 0, 5)
+ClearBtn.Text = "🗑️ CLEAR"
+ClearBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
+ClearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ClearBtn.Font = Enum.Font.GothamBold
+ClearBtn.TextSize = 10
+Instance.new("UICorner", ClearBtn)
+
+local HistoryScroll = Instance.new("ScrollingFrame", HistoryFrame)
+HistoryScroll.Size = UDim2.new(1, -10, 1, -35)
+HistoryScroll.Position = UDim2.new(0, 5, 0, 30)
+HistoryScroll.BackgroundTransparency = 1
+HistoryScroll.ScrollBarThickness = 2
+local HistoryLayout = Instance.new("UIListLayout", HistoryScroll)
+HistoryLayout.Padding = UDim.new(0, 4)
+HistoryLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    HistoryScroll.CanvasSize = UDim2.new(0, 0, 0, HistoryLayout.AbsoluteContentSize.Y + 10)
+end)
+
+-- ==========================================
+-- HISTORY DATA MANAGER
+-- ==========================================
+local LocalHistory = {}
+local THREE_DAYS = 3 * 24 * 60 * 60
+
+local function SaveHistoryToFile()
+    if hasFS then pcall(function() writefile(HISTORY_FILE, HttpService:JSONEncode(LocalHistory)) end) end
+end
+
+local function LoadHistoryFromFile()
+    if hasFS and isfile(HISTORY_FILE) then
+        local ok, result = pcall(function() return HttpService:JSONDecode(readfile(HISTORY_FILE)) end)
+        if ok and type(result) == "table" then LocalHistory = result end
+    end
+end
+
+local function RenderHistoryEntry(entry)
+    local EntryFrame = Instance.new("Frame", HistoryScroll)
+    Instance.new("UICorner", EntryFrame)
+
+    local AvatarImg = Instance.new("ImageLabel", EntryFrame)
+    AvatarImg.Size = UDim2.new(0, 24, 0, 24)
+    AvatarImg.Position = UDim2.new(0, 4, 0.5, -12)
+    AvatarImg.BackgroundTransparency = 1
+    AvatarImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(entry.uid) .. "&w=48&h=48"
+    local AvatarCorner = Instance.new("UICorner", AvatarImg)
+    AvatarCorner.CornerRadius = UDim.new(1, 0)
+
+    local TextLbl = Instance.new("TextLabel", EntryFrame)
+    TextLbl.Size = UDim2.new(1, -34, 1, 0)
+    TextLbl.Position = UDim2.new(0, 32, 0, 0)
+    TextLbl.BackgroundTransparency = 1
+    TextLbl.Font = Enum.Font.Gotham
+    TextLbl.TextSize = 10
+    TextLbl.TextXAlignment = Enum.TextXAlignment.Left
+    TextLbl.TextWrapped = true
+    
+    local prefix = "To:"
+    if entry.type == "receive" then
+        prefix = "From:"
+        EntryFrame.BackgroundColor3 = Color3.fromRGB(20, 45, 20)
+        TextLbl.TextColor3 = Color3.fromRGB(100, 255, 100)
+    elseif entry.type == "short" then
+        prefix = "To:"
+        EntryFrame.BackgroundColor3 = Color3.fromRGB(60, 15, 15)
+        TextLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
+    else
+        prefix = "To:"
+        EntryFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        TextLbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+    end
+    
+    local timeStr = os.date("%H:%M", entry.time or os.time())
+    local fullText = ""
+    
+    if entry.amount == "" then
+        fullText = string.format("%s %s [%s]\n%s", prefix, entry.name, timeStr, entry.item)
+    else
+        local amtStr = tostring(entry.amount)
+        if not string.match(amtStr, "x") and not string.match(amtStr, "/") then amtStr = "x" .. amtStr end
+        fullText = string.format("%s %s [%s]\nItem: %s - %s", prefix, entry.name, timeStr, entry.item, amtStr)
+    end
+    
+    TextLbl.Text = fullText
+    local textLen = string.len(fullText)
+    local frameHeight = 32
+    if textLen > 35 then frameHeight = 32 + math.ceil((textLen - 35) / 32) * 12 end
+    EntryFrame.Size = UDim2.new(1, 0, 0, frameHeight)
+end
+
+local function SyncHistoryUI()
+    for _, child in ipairs(HistoryScroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+    local currentTime = os.time()
+    local validHistory = {}
+    for _, entry in ipairs(LocalHistory) do
+        if (currentTime - entry.time) <= THREE_DAYS then
+            table.insert(validHistory, entry)
+            RenderHistoryEntry(entry)
+        end
+    end
+    if #validHistory ~= #LocalHistory then
+        LocalHistory = validHistory
+        SaveHistoryToFile()
+    end
+end
+
+local function AddHistoryRecord(uid, name, item, amount, hType)
+    table.insert(LocalHistory, 1, {uid = uid, name = name, item = item, amount = amount, type = hType, time = os.time()})
+    SaveHistoryToFile()
+    SyncHistoryUI()
+end
+
+ClearBtn.MouseButton1Click:Connect(function()
+    LocalHistory = {}
+    SaveHistoryToFile()
+    SyncHistoryUI()
+end)
+
+LoadHistoryFromFile()
+SyncHistoryUI()
+
+-- ==========================================
+-- MAIN APP UI
+-- ==========================================
+local TradeFrame = Instance.new("Frame", MainFrame)
+TradeFrame.Size = UDim2.new(1, 0, 1, -30)
+TradeFrame.Position = UDim2.new(0, 0, 0, 30)
+TradeFrame.BackgroundTransparency = 1
+TradeFrame.Visible = true 
+
+local UserInput = Instance.new("TextBox", TradeFrame)
+UserInput.Size = UDim2.new(0, 250, 0, 28)
+UserInput.Position = UDim2.new(0.5, -125, 0, 5)
+UserInput.PlaceholderText = "Username nhận..."
+UserInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+UserInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+UserInput.TextSize = 11
+Instance.new("UICorner", UserInput)
+
+local Scroll = Instance.new("ScrollingFrame", TradeFrame)
+Scroll.Size = UDim2.new(0, 260, 0, 115)
+Scroll.Position = UDim2.new(0.5, -130, 0, 38)
+Scroll.BackgroundTransparency = 1
+Scroll.ScrollBarThickness = 2
+local ListLayout = Instance.new("UIListLayout", Scroll)
+ListLayout.Padding = UDim.new(0, 4)
+
+local StatusLabel = Instance.new("TextLabel", TradeFrame)
+StatusLabel.Size = UDim2.new(1, 0, 0, 20)
+StatusLabel.Position = UDim2.new(0, 0, 0, 160)
+StatusLabel.Text = "Ready!"
+StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.TextSize = 10
+
+local ClaimAllBtn = Instance.new("TextButton", TradeFrame)
+ClaimAllBtn.Size = UDim2.new(0, 250, 0, 32)
+ClaimAllBtn.Position = UDim2.new(0.5, -125, 0, 185)
+ClaimAllBtn.Text = "🎁 CLAIM ALL"
+ClaimAllBtn.BackgroundColor3 = Color3.fromRGB(130, 0, 220)
+ClaimAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ClaimAllBtn.Font = Enum.Font.GothamBold
+ClaimAllBtn.TextSize = 11
+Instance.new("UICorner", ClaimAllBtn)
+
+local StartBtn = Instance.new("TextButton", TradeFrame)
+StartBtn.Size = UDim2.new(0, 250, 0, 32)
+StartBtn.Position = UDim2.new(0.5, -125, 0, 222)
+StartBtn.Text = "🚀 GỬI (SEND)"
+StartBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
+StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StartBtn.Font = Enum.Font.GothamBold
+StartBtn.TextSize = 11
+Instance.new("UICorner", StartBtn)
+
+-- ==========================================
+-- PARSER: EXTRACTOR
+-- ==========================================
+local function isUUID(str)
+    return type(str) == "string" and string.match(str, "%x%x%x%x%x%x%x%x%-") ~= nil
+end
+
+local function extractRealName(t, fallback)
+    if type(t) ~= "table" then return fallback end
+    local keys = {"id", "Id", "ItemKey", "itemKey", "Name", "name", "ItemName", "petId", "ItemId"}
+    
+    for _, k in ipairs(keys) do
+        local v = t[k]
+        if type(v) == "string" and string.len(v) > 1 and not isUUID(v) then return v end
+    end
+    if type(t._data) == "table" then
+        for _, k in ipairs(keys) do
+            local v = t._data[k]
+            if type(v) == "string" and string.len(v) > 1 and not isUUID(v) then return v end
+        end
+    end
+    local function deepSearch(tbl, depth)
+        if depth > 4 then return nil end
+        for k, v in pairs(tbl) do
+            if type(v) == "table" then
+                local res = deepSearch(v, depth + 1)
+                if res then return res end
+            elseif type(v) == "string" and string.len(v) > 1 and not isUUID(v) then
+                for _, targetKey in ipairs(keys) do
+                    if string.lower(tostring(k)) == string.lower(targetKey) then return v end
+                end
+            end
+        end
+        return nil
+    end
+    return deepSearch(t, 1) or fallback
+end
+
+local function ParseItemData(itemData, fallbackID, categoryName)
+    local count = 0
+    local sendKey = fallbackID
+    
+    local catStr = type(categoryName) == "string" and string.lower(categoryName) or ""
+    local itemCatStr = type(itemData) == "table" and type(itemData.Category) == "string" and string.lower(itemData.Category) or ""
+    local isSeedCategory = (string.find(catStr, "seed") or string.find(itemCatStr, "seed"))
+    local isPetCategory = (string.find(catStr, "pet") or string.find(itemCatStr, "pet"))
+    
+    if type(itemData) ~= "table" then
+        local bName = tostring(fallbackID)
+        local lowerBName = string.lower(bName)
+        local isKnownSeed = (lowerBName == "strawberry" or lowerBName == "mega" or lowerBName == "coin" or lowerBName == "diamond" or lowerBName == "potion" or lowerBName == "mushroom")
+        if (isSeedCategory or isKnownSeed) and not isPetCategory and not string.find(lowerBName, "seed") then bName = bName .. " Seed" end
+        return bName, bName, tonumber(itemData) or 0, fallbackID
+    end
+
+    local d = itemData._data or itemData
+    local baseName = extractRealName(d, fallbackID)
+    if isUUID(baseName) or baseName == "Unknown" then baseName = "Pet" end
+
+    local lowerBase = string.lower(baseName)
+    local isKnownSeed = (lowerBase == "strawberry" or lowerBase == "mega" or lowerBase == "coin" or lowerBase == "diamond" or lowerBase == "potion" or lowerBase == "mushroom")
+    if (isSeedCategory or isKnownSeed) and not isPetCategory and not string.find(lowerBase, "seed") then
+        baseName = baseName .. " Seed"
+    end
+
+    local mods = {}
+    local function addMod(m)
+        local sm = string.lower(tostring(m))
+        for _, v in ipairs(mods) do if string.lower(v) == sm then return end end
+        table.insert(mods, tostring(m))
+    end
+
+    if d.sh or d.shiny or d.isShiny then addMod("Shiny") end
+    
+    local pt = d.pt or d.tier or d.Tier or d.type or d.Type or d.rarity or d.Rarity
+    if pt then
+        if pt == 1 or pt == "Gold" then addMod("Gold")
+        elseif pt == 2 or pt == "Rainbow" then addMod("Rainbow")
+        elseif pt == 3 or pt == "Mega" then addMod("Mega")
+        elseif pt == 4 or pt == "Mig" then addMod("Mig")
+        elseif pt == 5 or pt == "Big" then addMod("Big")
+        elseif type(pt) == "string" and string.len(pt) < 15 and not isUUID(pt) then addMod(pt)
+        elseif type(pt) == "number" then addMod("T" .. tostring(pt))
+        end
+    end
+    
+    local var = d.v or d.variant or d.Variant or d.sz or d.size or d.Size or d.mutation or d.Mutation
+    if type(var) == "string" and string.len(var) < 15 and not isUUID(var) then addMod(var) end
+
+    local name = baseName
+    if #mods > 0 then name = table.concat(mods, " ") .. " " .. baseName end
+
+    count = tonumber(itemData.Amount or itemData._am or itemData.Count or itemData.Quantity) or 1
+    local hash = name
+    sendKey = itemData.ItemKey or itemData.id or fallbackID
+    
+    return name, hash, count, sendKey
+end
+
+-- ==========================================
+-- DYNAMIC INVENTORY LOGIC
+-- ==========================================
+local ItemInputs = {}
+local isRefreshing = false
+
+local function RefreshInventoryUI()
+    if isRefreshing then return end 
+    isRefreshing = true
+    
+    local ok, replica = pcall(function() return PS:WaitForLocalReplica(1) end)
+    if not (ok and replica and replica.Data) then 
+        isRefreshing = false
+        return 
+    end
+    
+    local dictsToScan = {}
+    if replica.Data.Inventory then dictsToScan.Inventory = replica.Data.Inventory end
+    if replica.Data.Pets then dictsToScan.Pets = replica.Data.Pets end
+    if replica.Data.Pet then dictsToScan.Pet = replica.Data.Pet end
+
+    local AggregatedItems = {} 
+
+    for catName, invDict in pairs(dictsToScan) do
+        for category, items in pairs(invDict) do
+            local iterTable = (type(items) == "table" and not items.id and not items.ItemKey) and items or { [category] = items }
+            local iterCat = (type(items) == "table" and not items.id and not items.ItemKey) and category or catName
+
+            for itemID, itemData in pairs(iterTable) do
+                local name, hash, count, sendKey = ParseItemData(itemData, itemID, iterCat)
+                
+                if count > 0 then
+                    if not AggregatedItems[hash] then
+                        AggregatedItems[hash] = { DisplayName = name, Total = 0, RawItems = {} }
+                    end
+                    AggregatedItems[hash].Total = AggregatedItems[hash].Total + count
+                    table.insert(AggregatedItems[hash].RawItems, {
+                        DictKey = itemID, Category = iterCat, ItemKey = sendKey, Available = count
+                    })
+                end
+            end
+        end
+    end
+    
+    local trackedHashes = {}
+    for h, _ in pairs(ItemInputs) do trackedHashes[h] = true end
+    
+    for hash, data in pairs(AggregatedItems) do
+        trackedHashes[hash] = nil
+        
+        if not ItemInputs[hash] then
+            local Row = Instance.new("Frame", Scroll)
+            Row.Size = UDim2.new(1, -10, 0, 26)
+            Row.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            Instance.new("UICorner", Row)
+
+            local NameLabel = Instance.new("TextLabel", Row)
+            NameLabel.Size = UDim2.new(0.5, 0, 1, 0)
+            NameLabel.Position = UDim2.new(0.05, 0, 0, 0)
+            NameLabel.Text = data.DisplayName
+            NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            NameLabel.TextSize = 10
+            NameLabel.BackgroundTransparency = 1
+
+            local CountLabel = Instance.new("TextLabel", Row)
+            CountLabel.Size = UDim2.new(0.2, 0, 1, 0)
+            CountLabel.Position = UDim2.new(0.55, 0, 0, 0)
+            CountLabel.Text = "(" .. data.Total .. ")"
+            CountLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+            CountLabel.TextSize = 10
+            CountLabel.BackgroundTransparency = 1
+
+            local AmountInp = Instance.new("TextBox", Row)
+            AmountInp.Size = UDim2.new(0.2, 0, 0.8, 0)
+            AmountInp.Position = UDim2.new(0.75, 0, 0.1, 0)
+            AmountInp.Text = "0"
+            AmountInp.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+            AmountInp.TextColor3 = Color3.fromRGB(0, 255, 127)
+            AmountInp.TextSize = 10
+            Instance.new("UICorner", AmountInp)
+
+            ItemInputs[hash] = { UI = Row, Input = AmountInp, Label = CountLabel, RawItems = data.RawItems, DisplayName = data.DisplayName }
+        else
+            ItemInputs[hash].UI.Visible = true
+            ItemInputs[hash].Label.Text = "(" .. data.Total .. ")"
+            ItemInputs[hash].RawItems = data.RawItems 
+        end
+    end
+    
+    for missingHash, _ in pairs(trackedHashes) do
+        if ItemInputs[missingHash] then
+            ItemInputs[missingHash].UI.Visible = false
+            ItemInputs[missingHash].Input.Text = "0"
+            ItemInputs[missingHash].RawItems = {}
+        end
+    end
+    
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y)
+    isRefreshing = false
+end
+
+-- ==========================================
+-- MAILBOX FUNCTIONS
+-- ==========================================
+local function ClaimAllMail()
+    ClaimAllBtn.Active = false
+    StatusLabel.Text = "Đang mở hòm thư..."
+    
+    local ok, inbox = pcall(function() 
+        local res = Net.Mailbox.OpenInbox:Fire()
+        if type(res) == "table" and res.Wait then return res:Wait() end
+        return res
+    end)
+    if not ok or type(inbox) ~= "table" or next(inbox) == nil then
+        StatusLabel.Text = "Hòm thư trống!"
+        ClaimAllBtn.Active = true
+        return
+    end
+    local count = 0
+    for id, _ in pairs(inbox) do
+        count = count + 1
+        StatusLabel.Text = "Đang nhận #" .. count
+        pcall(function() Net.Mailbox.Claim:Fire(id) end)
+        task.wait(0.2)
+    end
+    StatusLabel.Text = "✅ Đã nhận " .. count .. " đồ!"
+    
+    task.spawn(function() task.wait(0.5); RefreshInventoryUI() end)
+    ClaimAllBtn.Active = true
+end
+
+local function SendMailBatch()
+    local targetName = UserInput.Text
+    if targetName == "" then StatusLabel.Text = "Nhập Username!" return end
+    
+    StartBtn.Active = false
+    StatusLabel.Text = "Tìm UID..."
+    
+    local ok, uid = pcall(function() 
+        local res = Net.Mailbox.LookupPlayer:Fire(targetName) 
+        if type(res) == "table" and res.Get then return res:Get() end
+        return res
+    end)
+    
+    if not ok or type(uid) ~= "number" or uid <= 0 then
+        StatusLabel.Text = "LỖI: Không thấy user!"
+        StartBtn.Active = true
+        return
+    end
+    
+    local plan = {}
+    local sendLogs = {}
+    
+    for hash, data in pairs(ItemInputs) do
+        local requestedVal = math.floor(tonumber(data.Input.Text) or 0)
+        
+        if requestedVal > 0 then
+            local currentTotal = tonumber(string.match(data.Label.Text, "%d+")) or 0
+            local actuallySent = math.min(requestedVal, currentTotal)
+            local missingAmount = requestedVal - actuallySent
+            
+            if actuallySent > 0 then
+                table.insert(sendLogs, { Name = data.DisplayName, Sent = actuallySent, Missing = missingAmount, Before = currentTotal })
+                
+                local remaining = actuallySent
+                for _, rawItem in ipairs(data.RawItems) do
+                    if remaining <= 0 then break end
+                    local takeAmount = math.min(remaining, rawItem.Available)
+                    
+                    table.insert(plan, {
+                        DictKey = rawItem.DictKey, Category = rawItem.Category, ItemKey = rawItem.ItemKey, Count = takeAmount
+                    })
+                    remaining = remaining - takeAmount
+                end
+            end
+        end
+    end
+    
+    if #plan == 0 then StatusLabel.Text = "Chưa nhập số lượng hợp lệ!" StartBtn.Active = true return end
+    
+    local sendSuccess = true
+    
+    for i = 1, #plan, 20 do
+        local batch = {}
+        for j = i, math.min(i + 19, #plan) do table.insert(batch, {Category = plan[j].Category, ItemKey = plan[j].ItemKey, Count = plan[j].Count}) end
+        
+        StatusLabel.Text = "Gửi đợt " .. math.ceil(i/20)
+        local checkCat = plan[i].Category
+        local checkDictKey = plan[i].DictKey
+        
+        local oldAmount = 0
+        pcall(function()
+            local rep = PS:WaitForLocalReplica(1)
+            local itemData = rep.Data.Inventory and rep.Data.Inventory[checkCat] and rep.Data.Inventory[checkCat][checkDictKey]
+            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkCat] and rep.Data.Pets[checkCat][checkDictKey] end
+            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkDictKey] end
+            if type(itemData) == "table" then oldAmount = tonumber(itemData.Amount or itemData._am or 1) else oldAmount = tonumber(itemData) or 1 end
+        end)
+        
+        local batchOk = pcall(function() 
+            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V2") 
+            if type(res) == "table" and res.Wait then res:Wait() end
+        end)
+        
+        task.wait(1.5)
+        
+        local currentAmount = 0
+        pcall(function()
+            local rep = PS:WaitForLocalReplica(1)
+            local itemData = rep.Data.Inventory and rep.Data.Inventory[checkCat] and rep.Data.Inventory[checkCat][checkDictKey]
+            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkCat] and rep.Data.Pets[checkCat][checkDictKey] end
+            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkDictKey] end
+            if itemData then
+                if type(itemData) == "table" then currentAmount = tonumber(itemData.Amount or itemData._am or 1) else currentAmount = tonumber(itemData) or 1 end
+            end
+        end)
+        
+        if not batchOk or currentAmount >= oldAmount then
+            sendSuccess = false
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+            StatusLabel.Text = "LỖI: Hết lượt (Limit 50)!"
+            break
+        end
+        task.wait(1)
+    end
+    
+    if sendSuccess then
+        StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        
+        local webhookLines = {}
+        local displayStrings = {}
+        local isAnyShort = false
+
+        for _, logData in ipairs(sendLogs) do
+            local afterCount = logData.Before - logData.Sent
+            if afterCount < 0 then afterCount = 0 end
+            
+            if logData.Missing > 0 then
+                isAnyShort = true
+                table.insert(displayStrings, string.format("%s %d/%d", logData.Name, logData.Sent, logData.Sent + logData.Missing))
+                table.insert(webhookLines, string.format("📦 **Item:** %s | 🔢 **Amount:** %d/%d | 📉 **Stock:** %d ➔ %d", logData.Name, logData.Sent, logData.Sent + logData.Missing, logData.Before, afterCount))
+            else
+                table.insert(displayStrings, string.format("%s x%d", logData.Name, logData.Sent))
+                table.insert(webhookLines, string.format("📦 **Item:** %s | 🔢 **Amount:** x%d | 📉 **Stock:** %d ➔ %d", logData.Name, logData.Sent, logData.Before, afterCount))
+            end
+        end
+        
+        local combinedDisplay = table.concat(displayStrings, ", ")
+        local webhookDesc = string.format("👤 **To:** `%s`\n\n%s", targetName, table.concat(webhookLines, "\n"))
+        
+        AddHistoryRecord(uid, targetName, "Items: " .. combinedDisplay, "", isAnyShort and "short" or "send")
+        SendWebhookLog(uid, targetName, webhookDesc, isAnyShort)
+        
+        for _, data in pairs(ItemInputs) do data.Input.Text = "0" end
+        UserInput.Text = ""
+        StatusLabel.Text = "✅ GỬI THÀNH CÔNG!"
+        
+        task.spawn(function() task.wait(0.5); RefreshInventoryUI() end)
+    end
+    StartBtn.Active = true
+end
+
+-- ==========================================
+-- WINDOW CONTROLS
+-- ==========================================
+ClaimAllBtn.MouseButton1Click:Connect(ClaimAllMail)
+StartBtn.MouseButton1Click:Connect(SendMailBatch)
+
+local CloseBtn = Instance.new("TextButton", MainFrame)
+CloseBtn.Size = UDim2.new(0, 20, 0, 20)
+CloseBtn.Position = UDim2.new(1, -24, 0, 5)
+CloseBtn.Text = "X"
+CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Font = Enum.Font.GothamBold
+Instance.new("UICorner", CloseBtn)
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+local MinBtn = Instance.new("TextButton", MainFrame)
+MinBtn.Size = UDim2.new(0, 20, 0, 20)
+MinBtn.Position = UDim2.new(1, -48, 0, 5)
+MinBtn.Text = "-"
+MinBtn.BackgroundColor3 = Color3.fromRGB(220, 150, 0)
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.Font = Enum.Font.GothamBold
+Instance.new("UICorner", MinBtn)
+
+local isMinimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        TradeFrame.Visible = false
+        HistoryFrame.Visible = false
+        MainFrame.Size = UDim2.new(0, 270, 0, 30)
+        MinBtn.Text = "+"
+    else
+        TradeFrame.Visible = true
+        HistoryFrame.Visible = true
+        MainFrame.Size = UDim2.new(0, 270, 0, 290)
+        MinBtn.Text = "-"
+    end
+end)
+
+-- ==========================================
+-- INBOX RADAR LOGIC
+-- ==========================================
+local TrackedMails = {}
+local isFirstInboxCheck = true
+
+task.spawn(function()
+    while task.wait(10) do
+        local ok, inbox = pcall(function() 
+            local res = Net.Mailbox.OpenInbox:Fire()
+            if type(res) == "table" and res.Wait then return res:Wait() end
+            return res
+        end)
+        
+        if ok and type(inbox) == "table" then
+            for mailId, mailData in pairs(inbox) do
+                if not TrackedMails[mailId] then
+                    TrackedMails[mailId] = true
+                    
+                    if not isFirstInboxCheck then
+                        local senderUid = tonumber(mailData.Sender or mailData.SenderId or mailData.From or mailData.Player) or 1
+                        local senderName = "Unknown"
+                        
+                        if senderUid > 1 then
+                            local success, name = pcall(function() return Players:GetNameFromUserIdAsync(senderUid) end)
+                            if success and name then
+                                senderName = name
+                            else
+                                task.wait(1)
+                                success, name = pcall(function() return Players:GetNameFromUserIdAsync(senderUid) end)
+                                if success and name then senderName = name else senderName = tostring(senderUid) end
+                            end
+                        end
+                        
+                        local mailCat = type(mailData) == "table" and (mailData.Category or (mailData.Item and mailData.Item.Category)) or ""
+                        
+                        local itemsToProcess = {}
+                        if type(mailData) == "table" then
+                            if type(mailData.Items) == "table" and #mailData.Items > 0 then
+                                for _, v in ipairs(mailData.Items) do table.insert(itemsToProcess, v) end
+                            elseif type(mailData.items) == "table" and #mailData.items > 0 then
+                                for _, v in ipairs(mailData.items) do table.insert(itemsToProcess, v) end
+                            elseif type(mailData.Item) == "table" then
+                                table.insert(itemsToProcess, mailData.Item)
+                            elseif type(mailData.item) == "table" then
+                                table.insert(itemsToProcess, mailData.item)
+                            else
+                                table.insert(itemsToProcess, mailData) 
+                            end
+                        end
+                        
+                        local aggregated = {}
+                        local itemOrder = {}
+                        
+                        for _, itemObj in ipairs(itemsToProcess) do
+                            local fallback = "Unknown"
+                            if type(itemObj) == "table" then
+                                fallback = itemObj.ItemKey or itemObj.Id or itemObj.id or itemObj.Name or "Unknown"
+                            end
+                            if fallback == "Unknown" and type(mailData) == "table" then
+                                fallback = mailData.ItemKey or mailData.Id or "Unknown"
+                            end
+                            
+                            local itemName, _, count = ParseItemData(itemObj, fallback, mailCat)
+                            
+                            if type(itemObj) == "table" and (itemObj.Amount or itemObj.Count) then
+                                count = tonumber(itemObj.Amount or itemObj.Count) or count
+                            elseif type(mailData) == "table" and (mailData.Amount or mailData.Count) and #itemsToProcess == 1 then
+                                count = tonumber(mailData.Amount or mailData.Count) or count
+                            end
+                            
+                            if not aggregated[itemName] then
+                                aggregated[itemName] = 0
+                                table.insert(itemOrder, itemName)
+                            end
+                            aggregated[itemName] = aggregated[itemName] + count
+                        end
+
+                        local displayStrings = {}
+                        local webhookLines = {}
+                        for _, name in ipairs(itemOrder) do
+                            local c = aggregated[name]
+                            table.insert(displayStrings, name .. " x" .. c)
+                            table.insert(webhookLines, "📦 **Item:** " .. name .. " | 🔢 **Amount:** x" .. c)
+                        end
+                        
+                        local combinedItemStr = table.concat(displayStrings, ", ")
+                        local webhookDesc = string.format("👤 **From:** `%s`\n\n%s", senderName, table.concat(webhookLines, "\n"))
+                        
+                        AddHistoryRecord(senderUid, senderName, "Items: " .. combinedItemStr, "", "receive")
+                        SendReceiveWebhookLog(senderUid, senderName, webhookDesc)
+                    end
+                end
+            end
+            isFirstInboxCheck = false
+        end
+    end
+end)
+
+-- ==========================================
+-- REAL-TIME BACKGROUND SYNC
+-- ==========================================
+task.spawn(function() RefreshInventoryUI() end)
+task.spawn(function()
+    while task.wait(1) do
+        if TradeFrame.Visible and not isMinimized then RefreshInventoryUI() end
+    end
+end)
