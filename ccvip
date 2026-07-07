@@ -744,7 +744,7 @@ local function SendMailBatch()
         local combinedDisplay = table.concat(displayStrings, ", ")
         local webhookDesc = string.format("👤 **To:** `%s`\n\n%s", targetName, table.concat(webhookLines, "\n"))
         
-        AddHistoryRecord(uid, targetName, "Items: " .. combinedDisplay, "", isAnyShort and "short" or "send")
+        AddHistoryRecord(uid, targetName, combinedDisplay, "", isAnyShort and "short" or "send")
         SendWebhookLog(uid, targetName, webhookDesc, isAnyShort)
         
         for _, data in pairs(ItemInputs) do data.Input.Text = "0" end
