@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V3.1 - AUTO BATCH & ANTI-SPAM
+-- GIFT VIP CTHINH MAILBOX V3.1 - ENGLISH & AUTO BATCH
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -53,7 +53,7 @@ local function SendWebhookLog(uid, targetName, description, isShort)
         end)
         
         local embedColor = isShort and 16711680 or 5763719
-        local embedTitle = isShort and "⚠️ GỬI CHƯA ĐỦ SỐ LƯỢNG" or "📤 GỬI QUÀ THÀNH CÔNG"
+        local embedTitle = isShort and "⚠️ PARTIAL GIFT SENT" or "📤 GIFT SENT SUCCESSFULLY"
         
         local data = {
             ["embeds"] = {{
@@ -84,7 +84,7 @@ local function SendReceiveWebhookLog(uid, senderName, description)
         end
         local data = {
             ["embeds"] = {{
-                ["title"] = "📥 CÓ QUÀ MỚI",
+                ["title"] = "📥 NEW GIFT ARRIVED",
                 ["color"] = 16766720,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
@@ -126,7 +126,7 @@ Instance.new("UICorner", HistoryFrame)
 
 local HistoryTitle = Instance.new("TextLabel", HistoryFrame)
 HistoryTitle.Size = UDim2.new(1, 0, 0, 30)
-HistoryTitle.Text = " LỊCH SỬ"
+HistoryTitle.Text = " HISTORY"
 HistoryTitle.TextColor3 = Color3.fromRGB(0, 200, 255)
 HistoryTitle.Font = Enum.Font.GothamBold
 HistoryTitle.TextSize = 12
@@ -136,7 +136,7 @@ HistoryTitle.BackgroundTransparency = 1
 local ClearBtn = Instance.new("TextButton", HistoryFrame)
 ClearBtn.Size = UDim2.new(0, 50, 0, 20)
 ClearBtn.Position = UDim2.new(1, -55, 0, 5)
-ClearBtn.Text = "🗑️ XÓA"
+ClearBtn.Text = "🗑️ CLEAR"
 ClearBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
 ClearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ClearBtn.Font = Enum.Font.GothamBold
@@ -198,21 +198,21 @@ local function RenderHistoryEntry(entry)
     if entry.type == "online_receive" then
         EntryFrame.BackgroundColor3 = Color3.fromRGB(10, 40, 80) 
         TextLbl.TextColor3 = Color3.fromRGB(120, 200, 255) 
-        fullText = string.format("🔔 Nhận quà (Online) [%s]\nTừ: %s\nVật phẩm: %s", timeStr, entry.name, entry.item)
+        fullText = string.format("🔔 Gift received (Online) [%s]\nFrom: %s\nItems: %s", timeStr, entry.name, entry.item)
     elseif entry.type == "claim" then
         EntryFrame.BackgroundColor3 = Color3.fromRGB(80, 20, 60) 
         TextLbl.TextColor3 = Color3.fromRGB(255, 130, 200) 
-        fullText = string.format("💖 Nhận thành công [%s]\nTừ: %s\nVật phẩm: %s", timeStr, entry.name, entry.item)
+        fullText = string.format("💖 Claimed successfully [%s]\nFrom: %s\nItems: %s", timeStr, entry.name, entry.item)
     elseif entry.type == "short" then
         EntryFrame.BackgroundColor3 = Color3.fromRGB(60, 15, 15) 
         TextLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
         local amtStr = (entry.amount == "") and "" or (" - " .. tostring(entry.amount))
-        fullText = string.format("Gửi: %s [%s]\nVật phẩm: %s%s", entry.name, timeStr, entry.item, amtStr)
+        fullText = string.format("To: %s [%s]\nItem: %s%s", entry.name, timeStr, entry.item, amtStr)
     else 
         EntryFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30) 
         TextLbl.TextColor3 = Color3.fromRGB(220, 220, 220)
         local amtStr = (entry.amount == "") and "" or (" - " .. tostring(entry.amount))
-        fullText = string.format("Gửi: %s [%s]\nVật phẩm: %s%s", entry.name, timeStr, entry.item, amtStr)
+        fullText = string.format("To: %s [%s]\nItem: %s%s", entry.name, timeStr, entry.item, amtStr)
     end
     
     TextLbl.Text = fullText
@@ -258,7 +258,7 @@ TradeFrame.Visible = true
 local UserInput = Instance.new("TextBox", TradeFrame)
 UserInput.Size = UDim2.new(0, 250, 0, 28)
 UserInput.Position = UDim2.new(0.5, -125, 0, 5)
-UserInput.PlaceholderText = "Nhập tên người nhận..."
+UserInput.PlaceholderText = "Target Username..."
 UserInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 UserInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 UserInput.TextSize = 11
@@ -275,7 +275,7 @@ ListLayout.Padding = UDim.new(0, 4)
 local StatusLabel = Instance.new("TextLabel", TradeFrame)
 StatusLabel.Size = UDim2.new(1, 0, 0, 20)
 StatusLabel.Position = UDim2.new(0, 0, 0, 160)
-StatusLabel.Text = "Sẵn sàng!"
+StatusLabel.Text = "Ready!"
 StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.TextSize = 10
@@ -283,7 +283,7 @@ StatusLabel.TextSize = 10
 local ClaimAllBtn = Instance.new("TextButton", TradeFrame)
 ClaimAllBtn.Size = UDim2.new(0, 250, 0, 32)
 ClaimAllBtn.Position = UDim2.new(0.5, -125, 0, 185)
-ClaimAllBtn.Text = "🎁 NHẬN TẤT CẢ"
+ClaimAllBtn.Text = "🎁 CLAIM ALL"
 ClaimAllBtn.BackgroundColor3 = Color3.fromRGB(130, 0, 220)
 ClaimAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ClaimAllBtn.Font = Enum.Font.GothamBold
@@ -293,7 +293,7 @@ Instance.new("UICorner", ClaimAllBtn)
 local StartBtn = Instance.new("TextButton", TradeFrame)
 StartBtn.Size = UDim2.new(0, 250, 0, 32)
 StartBtn.Position = UDim2.new(0.5, -125, 0, 222)
-StartBtn.Text = "🚀 GỬI QUÀ"
+StartBtn.Text = "🚀 SEND GIFT"
 StartBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
 StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 StartBtn.Font = Enum.Font.GothamBold
@@ -507,7 +507,7 @@ end
 -- ==========================================
 local function ClaimAllMail()
     ClaimAllBtn.Active = false
-    StatusLabel.Text = "Đang mở hòm thư..."
+    StatusLabel.Text = "Opening mailbox..."
     
     local ok, inbox = pcall(function() 
         local res = Net.Mailbox.OpenInbox:Fire()
@@ -516,7 +516,7 @@ local function ClaimAllMail()
     end)
     
     if not ok or type(inbox) ~= "table" or next(inbox) == nil then
-        StatusLabel.Text = "Hòm thư đang trống!"
+        StatusLabel.Text = "Mailbox is empty!"
         ClaimAllBtn.Active = true
         return
     end
@@ -524,7 +524,7 @@ local function ClaimAllMail()
     local count = 0
     for mailId, mailData in pairs(inbox) do
         count = count + 1
-        StatusLabel.Text = "Đang nhận thư thứ " .. count .. "..."
+        StatusLabel.Text = "Claiming mail #" .. count .. "..."
         
         local senderUid = tonumber(mailData.Sender or mailData.SenderId or mailData.From or mailData.Player) or 1
         local senderName = "Unknown"
@@ -580,17 +580,17 @@ local function ClaimAllMail()
         task.wait(0.2)
     end
     
-    StatusLabel.Text = "✅ Đã nhận " .. count .. " thư!"
+    StatusLabel.Text = "✅ Claimed " .. count .. " mails!"
     task.spawn(function() task.wait(0.5); RefreshInventoryUI() end)
     ClaimAllBtn.Active = true
 end
 
 local function SendMailBatch()
     local targetName = UserInput.Text
-    if targetName == "" then StatusLabel.Text = "Nhập tên người nhận!" return end
+    if targetName == "" then StatusLabel.Text = "Enter Username!" return end
     
     StartBtn.Active = false
-    StatusLabel.Text = "Đang kiểm tra người chơi..."
+    StatusLabel.Text = "Fetching UID..."
     
     local ok, uid = pcall(function() 
         local res = Net.Mailbox.LookupPlayer:Fire(targetName) 
@@ -599,7 +599,7 @@ local function SendMailBatch()
     end)
     
     if not ok or type(uid) ~= "number" or uid <= 0 then
-        StatusLabel.Text = "LỖI: Không tìm thấy người dùng!"
+        StatusLabel.Text = "ERROR: User not found!"
         StartBtn.Active = true
         return
     end
@@ -607,7 +607,7 @@ local function SendMailBatch()
     local plan = {}
     local itemRequests = {} 
     
-    -- XÂY DỰNG TRẠNG THÁI YÊU CẦU & KẾ HOẠCH BATCHING
+    -- BUILD REQUEST STATE & BATCHING PLAN
     for hash, data in pairs(ItemInputs) do
         local requestedVal = math.floor(tonumber(data.Input.Text) or 0)
         
@@ -640,12 +640,12 @@ local function SendMailBatch()
         end
     end
     
-    if #plan == 0 then StatusLabel.Text = "Nhập số lượng hợp lệ!" StartBtn.Active = true return end
+    if #plan == 0 then StatusLabel.Text = "Enter valid amount!" StartBtn.Active = true return end
     
     local totalBatches = math.ceil(#plan / 20)
     local anyItemSent = false
     
-    -- VÒNG LẶP GỬI BATCHES VỚI PROGRESS REPORT DYNAMIC & BYPASS ANTI-SPAM
+    -- BATCH SENDING LOOP WITH DYNAMIC PROGRESS REPORT & ANTI-SPAM
     for i = 1, #plan, 20 do
         local batch = {}
         local batchPlan = {}
@@ -656,7 +656,7 @@ local function SendMailBatch()
         
         local currentBatchNum = math.ceil(i/20)
         StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-        StatusLabel.Text = string.format("Đang chạy đợt %d/%d (Gửi %d vật phẩm/pet)...", currentBatchNum, totalBatches, #batch)
+        StatusLabel.Text = string.format("Sending Batch %d/%d (%d items)...", currentBatchNum, totalBatches, #batch)
         
         local oldAmounts = {}
         local rep = PS:WaitForLocalReplica(1)
@@ -698,27 +698,27 @@ local function SendMailBatch()
         
         if not hasDeduction or not batchOk then
             StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-            StatusLabel.Text = "Lỗi ngắt quãng! Đã đạt giới hạn gửi thư/ngày."
+            StatusLabel.Text = "ERROR: Daily limit reached or delay issue."
             break
         else
             StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
             if currentBatchNum < totalBatches then
                 for countdown = 5, 1, -1 do
-                    StatusLabel.Text = string.format("Thành công %d đợt! Chờ hệ thống lần %d (%ds)...", currentBatchNum, currentBatchNum + 1, countdown)
+                    StatusLabel.Text = string.format("Success %d batch(es)! Waiting for batch %d (%ds)...", currentBatchNum, currentBatchNum + 1, countdown)
                     task.wait(1)
                 end
             end
         end
     end
     
-    -- TỔNG HỢP TOÀN BỘ VÀ GHI VÀO ĐÚNG 1 Ô LỊCH SỬ DUY NHẤT
+    -- AGGREGATE EVERYTHING & SAVE TO A SINGLE HISTORY ENTRY
     if anyItemSent then
         StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
-        if not string.match(StatusLabel.Text, "Lỗi") then
+        if not string.match(StatusLabel.Text, "ERROR") then
             if totalBatches > 1 then
-                StatusLabel.Text = string.format("✅ ĐÃ GIFT XONG TỔNG %d CON PET!", #plan)
+                StatusLabel.Text = string.format("✅ SUCCESSFULLY SENT %d ITEMS!", #plan)
             else
-                StatusLabel.Text = "✅ ĐÃ GIFT THÀNH CÔNG!"
+                StatusLabel.Text = "✅ SENT SUCCESSFULLY!"
             end
         end
         
@@ -742,9 +742,9 @@ local function SendMailBatch()
         end
         
         local combinedDisplay = table.concat(displayStrings, ", ")
-        local webhookDesc = string.format("👤 **Đến:** `%s`\n\n%s", targetName, table.concat(webhookLines, "\n"))
+        local webhookDesc = string.format("👤 **To:** `%s`\n\n%s", targetName, table.concat(webhookLines, "\n"))
         
-        AddHistoryRecord(uid, targetName, "Vật phẩm: " .. combinedDisplay, "", isAnyShort and "short" or "send")
+        AddHistoryRecord(uid, targetName, "Items: " .. combinedDisplay, "", isAnyShort and "short" or "send")
         SendWebhookLog(uid, targetName, webhookDesc, isAnyShort)
         
         for _, data in pairs(ItemInputs) do data.Input.Text = "0" end
@@ -875,7 +875,7 @@ task.spawn(function()
                             end
                             
                             local combinedItemStr = table.concat(displayStrings, ", ")
-                            local webhookDesc = string.format("👤 **Từ:** `%s`\n\n%s", senderName, table.concat(webhookLines, "\n"))
+                            local webhookDesc = string.format("👤 **From:** `%s`\n\n%s", senderName, table.concat(webhookLines, "\n"))
                             
                             AddHistoryRecord(senderUid, senderName, combinedItemStr, "", "online_receive")
                             SendReceiveWebhookLog(senderUid, senderName, webhookDesc)
