@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V1.18 - SMART CATEGORY TABS (FILTER)
+-- GIFT VIP CTHINH MAILBOX V1.19 - ANTI-THREAD LOCK & AUTO RECOVERY
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -22,8 +22,10 @@ local HISTORY_FILE = "GiftVipCThinh_History.json"
 -- ==========================================
 local VirtualUser = game:GetService("VirtualUser")
 LP.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
+    pcall(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
 end)
 
 -- ==========================================
@@ -59,7 +61,7 @@ local function SendWebhookLog(uid, targetName, description, isShort)
                 ["color"] = embedColor,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.18 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.19 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -86,7 +88,7 @@ local function SendReceiveWebhookLog(uid, senderName, description)
                 ["color"] = 16766720,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.18 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V1.19 • " .. currentTime }
             }}
         }
         pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -94,14 +96,14 @@ local function SendReceiveWebhookLog(uid, senderName, description)
 end
 
 -- ==========================================
--- UI SETUP (WITH TABS)
+-- UI SETUP (TABS)
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.18"
+ScreenGui.Name = "GiftVipCThinh_Mailbox_V1.19"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 270, 0, 320) -- Nới chiều cao để chứa Tab
+MainFrame.Size = UDim2.new(0, 270, 0, 320) 
 MainFrame.Position = UDim2.new(0.5, -250, 0.5, -160) 
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.Active = true
@@ -110,7 +112,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "GIFT VIP CTHINH V1.18"
+Title.Text = "GIFT VIP CTHINH V1.19"
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
@@ -274,7 +276,7 @@ UserInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 UserInput.TextSize = 11
 Instance.new("UICorner", UserInput)
 
--- HỆ THỐNG FILTER TABS
+-- FILTER TABS
 local FilterFrame = Instance.new("Frame", TradeFrame)
 FilterFrame.Size = UDim2.new(0, 250, 0, 22)
 FilterFrame.Position = UDim2.new(0.5, -125, 0, 38)
@@ -284,7 +286,7 @@ local filters = {"All", "Seeds", "Pets", "Others"}
 local filterBtns = {}
 local CurrentFilter = "All"
 
-local RefreshInventoryUI -- Khai báo trước để Tab gọi
+local RefreshInventoryUI 
 
 for i, f in ipairs(filters) do
     local btn = Instance.new("TextButton", FilterFrame)
@@ -307,7 +309,6 @@ for i, f in ipairs(filters) do
     end)
 end
 
--- Vùng chứa List
 local Scroll = Instance.new("ScrollingFrame", TradeFrame)
 Scroll.Size = UDim2.new(0, 260, 0, 115)
 Scroll.Position = UDim2.new(0.5, -130, 0, 65)
@@ -401,7 +402,6 @@ local function ParseItemData(itemData, fallbackID, categoryName)
             bName = bName .. " Seed" 
         end
         
-        -- Phân loại bộ lọc
         if string.find(string.lower(bName), "seed") then filterType = "Seeds"
         elseif isPetCategory or isUUID(fallbackID) then filterType = "Pets" end
         
@@ -449,7 +449,6 @@ local function ParseItemData(itemData, fallbackID, categoryName)
     local hash = name
     sendKey = itemData.ItemKey or itemData.id or fallbackID
     
-    -- XÁC ĐỊNH FILTER TYPE
     if string.find(string.lower(name), "seed") or isSeedCategory or isKnownSeed then
         filterType = "Seeds"
     elseif isPetCategory or isUUID(fallbackID) or #mods > 0 or baseName == "Pet" then
@@ -460,113 +459,126 @@ local function ParseItemData(itemData, fallbackID, categoryName)
 end
 
 -- ==========================================
--- DYNAMIC INVENTORY LOGIC (WITH FILTER)
+-- DYNAMIC INVENTORY LOGIC (SAFE RECOVERY)
 -- ==========================================
-function RefreshInventoryUI()
+local ItemInputs = {}
+local isRefreshing = false
+
+RefreshInventoryUI = function()
     if isRefreshing then return end 
     isRefreshing = true
     
-    local ok, replica = pcall(function() return PS:WaitForLocalReplica(1) end)
-    if not (ok and replica and replica.Data) then 
-        isRefreshing = false
-        return 
-    end
-    
-    local dictsToScan = {}
-    if replica.Data.Inventory then dictsToScan.Inventory = replica.Data.Inventory end
-    if replica.Data.Pets then dictsToScan.Pets = replica.Data.Pets end
-    if replica.Data.Pet then dictsToScan.Pet = replica.Data.Pet end
+    -- Bọc lá chắn chống kẹt luồng (Anti-Thread Lock)
+    task.spawn(function()
+        local success, err = pcall(function()
+            local ok, replica = pcall(function() return PS:WaitForLocalReplica(1) end)
+            if not (ok and replica and replica.Data) then return end
+            
+            -- Mở rộng lưới quét đa thư mục
+            local dictsToScan = {}
+            if replica.Data.Inventory then dictsToScan.Inventory = replica.Data.Inventory end
+            if replica.Data.Pets then dictsToScan.Pets = replica.Data.Pets end
+            if replica.Data.Pet then dictsToScan.Pet = replica.Data.Pet end
+            if replica.Data.Items then dictsToScan.Items = replica.Data.Items end
+            if replica.Data.items then dictsToScan.items = replica.Data.items end
+            if replica.Data.Bag then dictsToScan.Bag = replica.Data.Bag end
+            if replica.Data.Storage then dictsToScan.Storage = replica.Data.Storage end
 
-    local AggregatedItems = {} 
+            local AggregatedItems = {} 
 
-    for catName, invDict in pairs(dictsToScan) do
-        for category, items in pairs(invDict) do
-            local iterTable = (type(items) == "table" and not items.id and not items.ItemKey) and items or { [category] = items }
-            local iterCat = (type(items) == "table" and not items.id and not items.ItemKey) and category or catName
+            for catName, invDict in pairs(dictsToScan) do
+                for category, items in pairs(invDict) do
+                    local iterTable = (type(items) == "table" and not items.id and not items.ItemKey) and items or { [category] = items }
+                    local iterCat = (type(items) == "table" and not items.id and not items.ItemKey) and category or catName
 
-            for itemID, itemData in pairs(iterTable) do
-                local name, hash, count, sendKey, filterType = ParseItemData(itemData, itemID, iterCat)
-                
-                if count > 0 then
-                    if not AggregatedItems[hash] then
-                        AggregatedItems[hash] = { DisplayName = name, Total = 0, FilterType = filterType, RawItems = {} }
+                    for itemID, itemData in pairs(iterTable) do
+                        -- pcall từng item để tránh 1 lỗi phá vỡ toàn bộ danh sách
+                        pcall(function()
+                            local name, hash, count, sendKey, filterType = ParseItemData(itemData, itemID, iterCat)
+                            if count > 0 then
+                                if not AggregatedItems[hash] then
+                                    AggregatedItems[hash] = { DisplayName = name, Total = 0, FilterType = filterType, RawItems = {} }
+                                end
+                                AggregatedItems[hash].Total = AggregatedItems[hash].Total + count
+                                table.insert(AggregatedItems[hash].RawItems, {
+                                    DictKey = itemID, Category = iterCat, ItemKey = sendKey, Available = count
+                                })
+                            end
+                        end)
                     end
-                    AggregatedItems[hash].Total = AggregatedItems[hash].Total + count
-                    table.insert(AggregatedItems[hash].RawItems, {
-                        DictKey = itemID, Category = iterCat, ItemKey = sendKey, Available = count
-                    })
                 end
             end
-        end
-    end
-    
-    local trackedHashes = {}
-    for h, _ in pairs(ItemInputs) do trackedHashes[h] = true end
-    
-    for hash, data in pairs(AggregatedItems) do
-        trackedHashes[hash] = nil
-        
-        -- CHECK FILTER
-        local isMatch = (CurrentFilter == "All" or data.FilterType == CurrentFilter)
-        
-        if isMatch then
-            if not ItemInputs[hash] then
-                local Row = Instance.new("Frame", Scroll)
-                Row.Size = UDim2.new(1, -10, 0, 26)
-                Row.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-                Instance.new("UICorner", Row)
+            
+            local trackedHashes = {}
+            for h, _ in pairs(ItemInputs) do trackedHashes[h] = true end
+            
+            for hash, data in pairs(AggregatedItems) do
+                trackedHashes[hash] = nil
+                local isMatch = (CurrentFilter == "All" or data.FilterType == CurrentFilter)
+                
+                if isMatch then
+                    if not ItemInputs[hash] then
+                        local Row = Instance.new("Frame", Scroll)
+                        Row.Size = UDim2.new(1, -10, 0, 26)
+                        Row.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                        Instance.new("UICorner", Row)
 
-                local NameLabel = Instance.new("TextLabel", Row)
-                NameLabel.Size = UDim2.new(0.5, 0, 1, 0)
-                NameLabel.Position = UDim2.new(0.05, 0, 0, 0)
-                NameLabel.Text = data.DisplayName
-                NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                NameLabel.TextXAlignment = Enum.TextXAlignment.Left
-                NameLabel.TextSize = 10
-                NameLabel.BackgroundTransparency = 1
+                        local NameLabel = Instance.new("TextLabel", Row)
+                        NameLabel.Size = UDim2.new(0.5, 0, 1, 0)
+                        NameLabel.Position = UDim2.new(0.05, 0, 0, 0)
+                        NameLabel.Text = data.DisplayName
+                        NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+                        NameLabel.TextSize = 10
+                        NameLabel.BackgroundTransparency = 1
 
-                local CountLabel = Instance.new("TextLabel", Row)
-                CountLabel.Size = UDim2.new(0.2, 0, 1, 0)
-                CountLabel.Position = UDim2.new(0.55, 0, 0, 0)
-                CountLabel.Text = "(" .. data.Total .. ")"
-                CountLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-                CountLabel.TextSize = 10
-                CountLabel.BackgroundTransparency = 1
+                        local CountLabel = Instance.new("TextLabel", Row)
+                        CountLabel.Size = UDim2.new(0.2, 0, 1, 0)
+                        CountLabel.Position = UDim2.new(0.55, 0, 0, 0)
+                        CountLabel.Text = "(" .. data.Total .. ")"
+                        CountLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+                        CountLabel.TextSize = 10
+                        CountLabel.BackgroundTransparency = 1
 
-                local AmountInp = Instance.new("TextBox", Row)
-                AmountInp.Size = UDim2.new(0.2, 0, 0.8, 0)
-                AmountInp.Position = UDim2.new(0.75, 0, 0.1, 0)
-                AmountInp.Text = "0"
-                AmountInp.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-                AmountInp.TextColor3 = Color3.fromRGB(0, 255, 127)
-                AmountInp.TextSize = 10
-                Instance.new("UICorner", AmountInp)
+                        local AmountInp = Instance.new("TextBox", Row)
+                        AmountInp.Size = UDim2.new(0.2, 0, 0.8, 0)
+                        AmountInp.Position = UDim2.new(0.75, 0, 0.1, 0)
+                        AmountInp.Text = "0"
+                        AmountInp.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                        AmountInp.TextColor3 = Color3.fromRGB(0, 255, 127)
+                        AmountInp.TextSize = 10
+                        Instance.new("UICorner", AmountInp)
 
-                ItemInputs[hash] = { UI = Row, Input = AmountInp, Label = CountLabel, RawItems = data.RawItems, DisplayName = data.DisplayName }
-            else
-                ItemInputs[hash].UI.Visible = true
-                ItemInputs[hash].Label.Text = "(" .. data.Total .. ")"
-                ItemInputs[hash].RawItems = data.RawItems 
+                        ItemInputs[hash] = { UI = Row, Input = AmountInp, Label = CountLabel, RawItems = data.RawItems, DisplayName = data.DisplayName }
+                    else
+                        ItemInputs[hash].UI.Visible = true
+                        ItemInputs[hash].Label.Text = "(" .. data.Total .. ")"
+                        ItemInputs[hash].RawItems = data.RawItems 
+                    end
+                else
+                    if ItemInputs[hash] then
+                        ItemInputs[hash].UI.Visible = false
+                        ItemInputs[hash].RawItems = data.RawItems
+                    end
+                end
             end
-        else
-            -- Ẩn đi nếu không khớp Tab (nhưng KHÔNG xóa số lượng đã nhập)
-            if ItemInputs[hash] then
-                ItemInputs[hash].UI.Visible = false
-                ItemInputs[hash].RawItems = data.RawItems
+            
+            for missingHash, _ in pairs(trackedHashes) do
+                if ItemInputs[missingHash] then
+                    ItemInputs[missingHash].UI.Visible = false
+                    ItemInputs[missingHash].Input.Text = "0"
+                    ItemInputs[missingHash].RawItems = {}
+                end
             end
+            Scroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y)
+        end)
+        
+        if not success then
+            warn("Gift VIP Error: ", err)
         end
-    end
-    
-    for missingHash, _ in pairs(trackedHashes) do
-        if ItemInputs[missingHash] then
-            ItemInputs[missingHash].UI.Visible = false
-            ItemInputs[missingHash].Input.Text = "0"
-            ItemInputs[missingHash].RawItems = {}
-        end
-    end
-    
-    Scroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y)
-    isRefreshing = false
+        -- Đảm bảo luồng không bao giờ bị kẹt
+        isRefreshing = false
+    end)
 end
 
 -- ==========================================
@@ -638,10 +650,7 @@ local function SendMailBatch()
                     local takeAmount = math.min(remaining, rawItem.Available)
                     
                     table.insert(plan, {
-                        DictKey = rawItem.DictKey, 
-                        Category = rawItem.Category, 
-                        ItemKey = rawItem.ItemKey, 
-                        Count = takeAmount
+                        DictKey = rawItem.DictKey, Category = rawItem.Category, ItemKey = rawItem.ItemKey, Count = takeAmount
                     })
                     remaining = remaining - takeAmount
                 end
@@ -667,13 +676,11 @@ local function SendMailBatch()
             local itemData = rep.Data.Inventory and rep.Data.Inventory[checkCat] and rep.Data.Inventory[checkCat][checkDictKey]
             if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkCat] and rep.Data.Pets[checkCat][checkDictKey] end
             if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkDictKey] end
-            
-            if type(itemData) == "table" then oldAmount = tonumber(itemData.Amount or itemData._am or 1)
-            else oldAmount = tonumber(itemData) or 1 end
+            if type(itemData) == "table" then oldAmount = tonumber(itemData.Amount or itemData._am or 1) else oldAmount = tonumber(itemData) or 1 end
         end)
         
         local batchOk = pcall(function() 
-            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.18") 
+            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V1.19") 
             if type(res) == "table" and res.Wait then res:Wait() end
         end)
         
@@ -685,10 +692,8 @@ local function SendMailBatch()
             local itemData = rep.Data.Inventory and rep.Data.Inventory[checkCat] and rep.Data.Inventory[checkCat][checkDictKey]
             if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkCat] and rep.Data.Pets[checkCat][checkDictKey] end
             if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[checkDictKey] end
-            
             if itemData then
-                if type(itemData) == "table" then currentAmount = tonumber(itemData.Amount or itemData._am or 1)
-                else currentAmount = tonumber(itemData) or 1 end
+                if type(itemData) == "table" then currentAmount = tonumber(itemData.Amount or itemData._am or 1) else currentAmount = tonumber(itemData) or 1 end
             end
         end)
         
@@ -779,101 +784,94 @@ MinBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- INBOX RADAR LOGIC 
+-- INBOX RADAR LOGIC
 -- ==========================================
 local TrackedMails = {}
 local isFirstInboxCheck = true
 
 task.spawn(function()
     while task.wait(10) do
-        local ok, inbox = pcall(function() 
-            local res = Net.Mailbox.OpenInbox:Fire()
-            if type(res) == "table" and res.Wait then return res:Wait() end
-            return res
-        end)
-        
-        if ok and type(inbox) == "table" then
-            for mailId, mailData in pairs(inbox) do
-                if not TrackedMails[mailId] then
-                    TrackedMails[mailId] = true
-                    
-                    if not isFirstInboxCheck then
-                        local senderUid = tonumber(mailData.Sender or mailData.SenderId or mailData.From or mailData.Player) or 1
-                        local senderName = "Unknown"
+        pcall(function()
+            local ok, inbox = pcall(function() 
+                local res = Net.Mailbox.OpenInbox:Fire()
+                if type(res) == "table" and res.Wait then return res:Wait() end
+                return res
+            end)
+            
+            if ok and type(inbox) == "table" then
+                for mailId, mailData in pairs(inbox) do
+                    if not TrackedMails[mailId] then
+                        TrackedMails[mailId] = true
                         
-                        if senderUid > 1 then
-                            local success, name = pcall(function() return Players:GetNameFromUserIdAsync(senderUid) end)
-                            if success and name then
-                                senderName = name
-                            else
-                                task.wait(1)
-                                success, name = pcall(function() return Players:GetNameFromUserIdAsync(senderUid) end)
-                                if success and name then senderName = name else senderName = tostring(senderUid) end
-                            end
-                        end
-                        
-                        local mailCat = type(mailData) == "table" and (mailData.Category or (mailData.Item and mailData.Item.Category)) or ""
-                        
-                        local itemsToProcess = {}
-                        if type(mailData) == "table" then
-                            if type(mailData.Items) == "table" and #mailData.Items > 0 then
-                                for _, v in ipairs(mailData.Items) do table.insert(itemsToProcess, v) end
-                            elseif type(mailData.items) == "table" and #mailData.items > 0 then
-                                for _, v in ipairs(mailData.items) do table.insert(itemsToProcess, v) end
-                            elseif type(mailData.Item) == "table" then
-                                table.insert(itemsToProcess, mailData.Item)
-                            elseif type(mailData.item) == "table" then
-                                table.insert(itemsToProcess, mailData.item)
-                            else
-                                table.insert(itemsToProcess, mailData) 
-                            end
-                        end
-                        
-                        local aggregated = {}
-                        local itemOrder = {}
-                        
-                        for _, itemObj in ipairs(itemsToProcess) do
-                            local fallback = "Unknown"
-                            if type(itemObj) == "table" then
-                                fallback = itemObj.ItemKey or itemObj.Id or itemObj.id or itemObj.Name or "Unknown"
-                            end
-                            if fallback == "Unknown" and type(mailData) == "table" then
-                                fallback = mailData.ItemKey or mailData.Id or "Unknown"
+                        if not isFirstInboxCheck then
+                            local senderUid = tonumber(mailData.Sender or mailData.SenderId or mailData.From or mailData.Player) or 1
+                            local senderName = "Unknown"
+                            
+                            if senderUid > 1 then
+                                local success, name = pcall(function() return Players:GetNameFromUserIdAsync(senderUid) end)
+                                if success and name then senderName = name
+                                else
+                                    task.wait(1)
+                                    success, name = pcall(function() return Players:GetNameFromUserIdAsync(senderUid) end)
+                                    if success and name then senderName = name else senderName = tostring(senderUid) end
+                                end
                             end
                             
-                            local itemName, _, count = ParseItemData(itemObj, fallback, mailCat)
-                            
-                            if type(itemObj) == "table" and (itemObj.Amount or itemObj.Count) then
-                                count = tonumber(itemObj.Amount or itemObj.Count) or count
-                            elseif type(mailData) == "table" and (mailData.Amount or mailData.Count) and #itemsToProcess == 1 then
-                                count = tonumber(mailData.Amount or mailData.Count) or count
+                            local mailCat = type(mailData) == "table" and (mailData.Category or (mailData.Item and mailData.Item.Category)) or ""
+                            local itemsToProcess = {}
+                            if type(mailData) == "table" then
+                                if type(mailData.Items) == "table" and #mailData.Items > 0 then
+                                    for _, v in ipairs(mailData.Items) do table.insert(itemsToProcess, v) end
+                                elseif type(mailData.items) == "table" and #mailData.items > 0 then
+                                    for _, v in ipairs(mailData.items) do table.insert(itemsToProcess, v) end
+                                elseif type(mailData.Item) == "table" then
+                                    table.insert(itemsToProcess, mailData.Item)
+                                elseif type(mailData.item) == "table" then
+                                    table.insert(itemsToProcess, mailData.item)
+                                else
+                                    table.insert(itemsToProcess, mailData) 
+                                end
                             end
                             
-                            if not aggregated[itemName] then
-                                aggregated[itemName] = 0
-                                table.insert(itemOrder, itemName)
+                            local aggregated = {}
+                            local itemOrder = {}
+                            
+                            for _, itemObj in ipairs(itemsToProcess) do
+                                local fallback = "Unknown"
+                                if type(itemObj) == "table" then fallback = itemObj.ItemKey or itemObj.Id or itemObj.id or itemObj.Name or "Unknown" end
+                                if fallback == "Unknown" and type(mailData) == "table" then fallback = mailData.ItemKey or mailData.Id or "Unknown" end
+                                
+                                local itemName, _, count = ParseItemData(itemObj, fallback, mailCat)
+                                
+                                if type(itemObj) == "table" and (itemObj.Amount or itemObj.Count) then count = tonumber(itemObj.Amount or itemObj.Count) or count
+                                elseif type(mailData) == "table" and (mailData.Amount or mailData.Count) and #itemsToProcess == 1 then count = tonumber(mailData.Amount or mailData.Count) or count end
+                                
+                                if not aggregated[itemName] then
+                                    aggregated[itemName] = 0
+                                    table.insert(itemOrder, itemName)
+                                end
+                                aggregated[itemName] = aggregated[itemName] + count
                             end
-                            aggregated[itemName] = aggregated[itemName] + count
-                        end
 
-                        local displayStrings = {}
-                        local webhookLines = {}
-                        for _, name in ipairs(itemOrder) do
-                            local c = aggregated[name]
-                            table.insert(displayStrings, name .. " x" .. c)
-                            table.insert(webhookLines, "📦 **Item:** " .. name .. " | 🔢 **Amount:** x" .. c)
+                            local displayStrings = {}
+                            local webhookLines = {}
+                            for _, name in ipairs(itemOrder) do
+                                local c = aggregated[name]
+                                table.insert(displayStrings, name .. " x" .. c)
+                                table.insert(webhookLines, "📦 **Item:** " .. name .. " | 🔢 **Amount:** x" .. c)
+                            end
+                            
+                            local combinedItemStr = table.concat(displayStrings, ", ")
+                            local webhookDesc = string.format("👤 **From:** `%s`\n\n%s", senderName, table.concat(webhookLines, "\n"))
+                            
+                            AddHistoryRecord(senderUid, senderName, "Items: " .. combinedItemStr, "", "receive")
+                            SendReceiveWebhookLog(senderUid, senderName, webhookDesc)
                         end
-                        
-                        local combinedItemStr = table.concat(displayStrings, ", ")
-                        local webhookDesc = string.format("👤 **From:** `%s`\n\n%s", senderName, table.concat(webhookLines, "\n"))
-                        
-                        AddHistoryRecord(senderUid, senderName, "Items: " .. combinedItemStr, "", "receive")
-                        SendReceiveWebhookLog(senderUid, senderName, webhookDesc)
                     end
                 end
+                isFirstInboxCheck = false
             end
-            isFirstInboxCheck = false
-        end
+        end)
     end
 end)
 
