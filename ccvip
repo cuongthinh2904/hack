@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V3.7 - IN-GAME WEBHOOK MANAGER
+-- VIP GIFT KHOGAMEGIARE.COM - SMART TABS, BATCHING, WEBHOOK & CONFIRM PROMPT
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -15,8 +15,8 @@ if not request then
 end
 
 local hasFS = (isfile and readfile and writefile)
-local HISTORY_FILE = "GiftVipCThinh_History.json"
-local WEBHOOK_FILE = "GiftVipCThinh_Webhook.txt"
+local HISTORY_FILE = "Khogamegiare_History.json"
+local WEBHOOK_FILE = "Khogamegiare_Webhook.txt"
 local CurrentWebhook = ""
 
 -- Load Saved Webhook
@@ -72,7 +72,7 @@ local function SendWebhookLog(uid, targetName, description, isShort)
                 ["color"] = embedColor,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V3.7 • " .. currentTime }
+                ["footer"] = { ["text"] = "Vip Gift Khogamegiare.com • " .. currentTime }
             }}
         }
         pcall(function() request({Url = CurrentWebhook, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -99,7 +99,7 @@ local function SendReceiveWebhookLog(uid, senderName, description)
                 ["color"] = 16766720,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V3.7 • " .. currentTime }
+                ["footer"] = { ["text"] = "Vip Gift Khogamegiare.com • " .. currentTime }
             }}
         }
         pcall(function() request({Url = CurrentWebhook, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
@@ -110,7 +110,7 @@ end
 -- UI SETUP
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "GiftVipCThinh_Mailbox_V3"
+ScreenGui.Name = "VipGift_Khogamegiare"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -123,7 +123,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "GIFT VIP CTHINH V3.7"
+Title.Text = "Vip Gift Khogamegiare.com"
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
@@ -164,6 +164,88 @@ HistoryLayout.Padding = UDim.new(0, 4)
 HistoryLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     HistoryScroll.CanvasSize = UDim2.new(0, 0, 0, HistoryLayout.AbsoluteContentSize.Y + 10)
 end)
+
+-- ==========================================
+-- CONFIRMATION POPUP UI
+-- ==========================================
+local ConfirmFrame = Instance.new("Frame", MainFrame)
+ConfirmFrame.Size = UDim2.new(1, 0, 1, 0)
+ConfirmFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+ConfirmFrame.BackgroundTransparency = 0.2
+ConfirmFrame.ZIndex = 50
+ConfirmFrame.Visible = false
+Instance.new("UICorner", ConfirmFrame)
+
+local ConfirmModal = Instance.new("Frame", ConfirmFrame)
+ConfirmModal.Size = UDim2.new(0, 230, 0, 150)
+ConfirmModal.Position = UDim2.new(0.5, -115, 0.5, -75)
+ConfirmModal.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+ConfirmModal.ZIndex = 51
+Instance.new("UICorner", ConfirmModal)
+
+local ConfirmTitle = Instance.new("TextLabel", ConfirmModal)
+ConfirmTitle.Size = UDim2.new(1, 0, 0, 25)
+ConfirmTitle.Text = "⚠️ CONFIRM GIFT"
+ConfirmTitle.TextColor3 = Color3.fromRGB(255, 200, 0)
+ConfirmTitle.Font = Enum.Font.GothamBold
+ConfirmTitle.TextSize = 12
+ConfirmTitle.BackgroundTransparency = 1
+ConfirmTitle.ZIndex = 52
+
+local ConfirmMsg = Instance.new("TextLabel", ConfirmModal)
+ConfirmMsg.Size = UDim2.new(1, -10, 1, -65)
+ConfirmMsg.Position = UDim2.new(0, 5, 0, 25)
+ConfirmMsg.Text = "Are you sure?"
+ConfirmMsg.TextColor3 = Color3.fromRGB(220, 220, 220)
+ConfirmMsg.Font = Enum.Font.Gotham
+ConfirmMsg.TextSize = 11
+ConfirmMsg.TextWrapped = true
+ConfirmMsg.TextYAlignment = Enum.TextYAlignment.Top
+ConfirmMsg.BackgroundTransparency = 1
+ConfirmMsg.ZIndex = 52
+
+local ConfirmYes = Instance.new("TextButton", ConfirmModal)
+ConfirmYes.Size = UDim2.new(0, 100, 0, 25)
+ConfirmYes.Position = UDim2.new(0, 10, 1, -35)
+ConfirmYes.Text = "✔ CONFIRM"
+ConfirmYes.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
+ConfirmYes.TextColor3 = Color3.fromRGB(255, 255, 255)
+ConfirmYes.Font = Enum.Font.GothamBold
+ConfirmYes.TextSize = 10
+ConfirmYes.ZIndex = 52
+Instance.new("UICorner", ConfirmYes)
+
+local ConfirmNo = Instance.new("TextButton", ConfirmModal)
+ConfirmNo.Size = UDim2.new(0, 100, 0, 25)
+ConfirmNo.Position = UDim2.new(1, -110, 1, -35)
+ConfirmNo.Text = "✖ CANCEL"
+ConfirmNo.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+ConfirmNo.TextColor3 = Color3.fromRGB(255, 255, 255)
+ConfirmNo.Font = Enum.Font.GothamBold
+ConfirmNo.TextSize = 10
+ConfirmNo.ZIndex = 52
+Instance.new("UICorner", ConfirmNo)
+
+local currentConfirmConn = nil
+local currentCancelConn = nil
+
+local function ShowConfirmPrompt(message, onConfirm, onCancel)
+    ConfirmFrame.Visible = true
+    ConfirmMsg.Text = message
+    
+    if currentConfirmConn then currentConfirmConn:Disconnect() end
+    if currentCancelConn then currentCancelConn:Disconnect() end
+    
+    currentConfirmConn = ConfirmYes.MouseButton1Click:Connect(function()
+        ConfirmFrame.Visible = false
+        if onConfirm then onConfirm() end
+    end)
+    
+    currentCancelConn = ConfirmNo.MouseButton1Click:Connect(function()
+        ConfirmFrame.Visible = false
+        if onCancel then onCancel() end
+    end)
+end
 
 -- ==========================================
 -- HISTORY DATA MANAGER
@@ -721,6 +803,7 @@ local function SendMailBatch()
     
     local plan = {}
     local itemRequests = {} 
+    local summaryLines = {}
     
     for hash, data in pairs(ItemInputs) do
         local requestedVal = math.floor(tonumber(data.Input.Text) or 0)
@@ -735,6 +818,8 @@ local function SendMailBatch()
                     Before = currentTotal,
                     Sent = 0
                 }
+                
+                table.insert(summaryLines, data.DisplayName .. " x" .. actuallySentTarget)
                 
                 local remaining = actuallySentTarget
                 for _, rawItem in ipairs(data.RawItems) do
@@ -756,115 +841,127 @@ local function SendMailBatch()
     
     if #plan == 0 then StatusLabel.Text = "Enter valid amount!" StartBtn.Active = true return end
     
-    local totalBatches = math.ceil(#plan / 20)
-    local anyItemSent = false
+    -- Show Confirmation Prompt
+    local summaryStr = table.concat(summaryLines, ", ")
+    local promptMsg = string.format("Are you sure you want to send:\n%s\n\nTo user: %s?", summaryStr, targetName)
     
-    for i = 1, #plan, 20 do
-        local batch = {}
-        local batchPlan = {}
-        for j = i, math.min(i + 19, #plan) do 
-            table.insert(batch, {Category = plan[j].Category, ItemKey = plan[j].ItemKey, Count = plan[j].Count}) 
-            table.insert(batchPlan, plan[j])
-        end
+    ShowConfirmPrompt(promptMsg, function()
+        -- User clicked CONFIRM -> Proceed to send
+        local totalBatches = math.ceil(#plan / 20)
+        local anyItemSent = false
         
-        local currentBatchNum = math.ceil(i/20)
-        StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-        StatusLabel.Text = string.format("Sending Batch %d/%d (%d items)...", currentBatchNum, totalBatches, #batch)
-        
-        local oldAmounts = {}
-        local rep = PS:WaitForLocalReplica(1)
-        for _, pItem in ipairs(batchPlan) do
-            local oldAmt = 0
-            local itemData = rep.Data.Inventory and rep.Data.Inventory[pItem.Category] and rep.Data.Inventory[pItem.Category][pItem.DictKey]
-            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[pItem.Category] and rep.Data.Pets[pItem.Category][pItem.DictKey] end
-            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[pItem.DictKey] end
-            if type(itemData) == "table" then oldAmt = tonumber(itemData.Amount or itemData._am or 1) else oldAmt = tonumber(itemData) or 1 end
-            oldAmounts[pItem.DictKey] = oldAmt
-        end
-        
-        local batchOk = pcall(function() 
-            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V3.7") 
-            if type(res) == "table" and res.Wait then res:Wait() end
-        end)
-        
-        task.wait(3.5)
-        
-        rep = PS:WaitForLocalReplica(1)
-        local hasDeduction = false
-        
-        for _, pItem in ipairs(batchPlan) do
-            local currentAmount = 0
-            local itemData = rep.Data.Inventory and rep.Data.Inventory[pItem.Category] and rep.Data.Inventory[pItem.Category][pItem.DictKey]
-            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[pItem.Category] and rep.Data.Pets[pItem.Category][pItem.DictKey] end
-            if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[pItem.DictKey] end
-            if itemData then
-                if type(itemData) == "table" then currentAmount = tonumber(itemData.Amount or itemData._am or 1) else currentAmount = tonumber(itemData) or 1 end
+        for i = 1, #plan, 20 do
+            local batch = {}
+            local batchPlan = {}
+            for j = i, math.min(i + 19, #plan) do 
+                table.insert(batch, {Category = plan[j].Category, ItemKey = plan[j].ItemKey, Count = plan[j].Count}) 
+                table.insert(batchPlan, plan[j])
             end
             
-            local deducted = oldAmounts[pItem.DictKey] - currentAmount
-            if deducted > 0 then
-                hasDeduction = true
-                anyItemSent = true
-                itemRequests[pItem.ReadableName].Sent = itemRequests[pItem.ReadableName].Sent + deducted
+            local currentBatchNum = math.ceil(i/20)
+            StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+            StatusLabel.Text = string.format("Sending Batch %d/%d (%d items)...", currentBatchNum, totalBatches, #batch)
+            
+            local oldAmounts = {}
+            local rep = PS:WaitForLocalReplica(1)
+            for _, pItem in ipairs(batchPlan) do
+                local oldAmt = 0
+                local itemData = rep.Data.Inventory and rep.Data.Inventory[pItem.Category] and rep.Data.Inventory[pItem.Category][pItem.DictKey]
+                if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[pItem.Category] and rep.Data.Pets[pItem.Category][pItem.DictKey] end
+                if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[pItem.DictKey] end
+                if type(itemData) == "table" then oldAmt = tonumber(itemData.Amount or itemData._am or 1) else oldAmt = tonumber(itemData) or 1 end
+                oldAmounts[pItem.DictKey] = oldAmt
             end
-        end
-        
-        if not hasDeduction or not batchOk then
-            StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-            StatusLabel.Text = "ERROR: Failed to send or game limit hit."
-            break
-        else
-            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
-            if currentBatchNum < totalBatches then
-                for countdown = 5, 1, -1 do
-                    StatusLabel.Text = string.format("Success %d batch(es)! Waiting for batch %d (%ds)...", currentBatchNum, currentBatchNum + 1, countdown)
-                    task.wait(1)
+            
+            local batchOk = pcall(function() 
+                local res = Net.Mailbox.SendBatch:Fire(uid, batch, "Vip Gift Khogamegiare.com") 
+                if type(res) == "table" and res.Wait then res:Wait() end
+            end)
+            
+            task.wait(3.5)
+            
+            rep = PS:WaitForLocalReplica(1)
+            local hasDeduction = false
+            
+            for _, pItem in ipairs(batchPlan) do
+                local currentAmount = 0
+                local itemData = rep.Data.Inventory and rep.Data.Inventory[pItem.Category] and rep.Data.Inventory[pItem.Category][pItem.DictKey]
+                if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[pItem.Category] and rep.Data.Pets[pItem.Category][pItem.DictKey] end
+                if not itemData then itemData = rep.Data.Pets and rep.Data.Pets[pItem.DictKey] end
+                if itemData then
+                    if type(itemData) == "table" then currentAmount = tonumber(itemData.Amount or itemData._am or 1) else currentAmount = tonumber(itemData) or 1 end
                 end
-            end
-        end
-    end
-    
-    if anyItemSent then
-        StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
-        if not string.match(StatusLabel.Text, "ERROR") then
-            if totalBatches > 1 then
-                StatusLabel.Text = string.format("✅ SUCCESSFULLY SENT %d ITEMS!", #plan)
-            else
-                StatusLabel.Text = "✅ SENT SUCCESSFULLY!"
-            end
-        end
-        
-        local webhookLines = {}
-        local displayStrings = {}
-        local isAnyShort = false
-
-        for name, data in pairs(itemRequests) do
-            if data.Sent > 0 then
-                local finalAfter = math.max(0, data.Before - data.Sent)
                 
-                if data.Sent < data.Requested then
-                    isAnyShort = true
-                    table.insert(displayStrings, string.format("%s %d/%d", name, data.Sent, data.Requested))
-                    table.insert(webhookLines, string.format("📦 **Item:** %s | 🔢 **Amount:** %d/%d | 📉 **Stock:** %d ➔ %d", name, data.Sent, data.Requested, data.Before, finalAfter))
-                else
-                    table.insert(displayStrings, string.format("%s x%d", name, data.Sent))
-                    table.insert(webhookLines, string.format("📦 **Item:** %s | 🔢 **Amount:** x%d | 📉 **Stock:** %d ➔ %d", name, data.Sent, data.Before, finalAfter))
+                local deducted = oldAmounts[pItem.DictKey] - currentAmount
+                if deducted > 0 then
+                    hasDeduction = true
+                    anyItemSent = true
+                    itemRequests[pItem.ReadableName].Sent = itemRequests[pItem.ReadableName].Sent + deducted
+                end
+            end
+            
+            if not hasDeduction or not batchOk then
+                StatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+                StatusLabel.Text = "ERROR: Failed to send or game limit hit."
+                break
+            else
+                StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
+                if currentBatchNum < totalBatches then
+                    for countdown = 5, 1, -1 do
+                        StatusLabel.Text = string.format("Success %d batch(es)! Waiting for batch %d (%ds)...", currentBatchNum, currentBatchNum + 1, countdown)
+                        task.wait(1)
+                    end
                 end
             end
         end
         
-        local combinedDisplay = table.concat(displayStrings, ", ")
-        local webhookDesc = string.format("👤 **To:** `%s`\n\n%s", targetName, table.concat(webhookLines, "\n"))
+        if anyItemSent then
+            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
+            if not string.match(StatusLabel.Text, "ERROR") then
+                if totalBatches > 1 then
+                    StatusLabel.Text = string.format("✅ SUCCESSFULLY SENT %d ITEMS!", #plan)
+                else
+                    StatusLabel.Text = "✅ SENT SUCCESSFULLY!"
+                end
+            end
+            
+            local webhookLines = {}
+            local displayStrings = {}
+            local isAnyShort = false
+
+            for name, data in pairs(itemRequests) do
+                if data.Sent > 0 then
+                    local finalAfter = math.max(0, data.Before - data.Sent)
+                    
+                    if data.Sent < data.Requested then
+                        isAnyShort = true
+                        table.insert(displayStrings, string.format("%s %d/%d", name, data.Sent, data.Requested))
+                        table.insert(webhookLines, string.format("📦 **Item:** %s | 🔢 **Amount:** %d/%d | 📉 **Stock:** %d ➔ %d", name, data.Sent, data.Requested, data.Before, finalAfter))
+                    else
+                        table.insert(displayStrings, string.format("%s x%d", name, data.Sent))
+                        table.insert(webhookLines, string.format("📦 **Item:** %s | 🔢 **Amount:** x%d | 📉 **Stock:** %d ➔ %d", name, data.Sent, data.Before, finalAfter))
+                    end
+                end
+            end
+            
+            local combinedDisplay = table.concat(displayStrings, ", ")
+            local webhookDesc = string.format("👤 **To:** `%s`\n\n%s", targetName, table.concat(webhookLines, "\n"))
+            
+            AddHistoryRecord(uid, targetName, combinedDisplay, "", isAnyShort and "short" or "send")
+            SendWebhookLog(uid, targetName, webhookDesc, isAnyShort)
+            
+            for _, data in pairs(ItemInputs) do data.Input.Text = "0" end
+            UserInput.Text = ""
+            
+            task.spawn(function() task.wait(0.5); RefreshInventoryUI() end)
+        end
+        StartBtn.Active = true
         
-        AddHistoryRecord(uid, targetName, combinedDisplay, "", isAnyShort and "short" or "send")
-        SendWebhookLog(uid, targetName, webhookDesc, isAnyShort)
-        
-        for _, data in pairs(ItemInputs) do data.Input.Text = "0" end
-        UserInput.Text = ""
-        
-        task.spawn(function() task.wait(0.5); RefreshInventoryUI() end)
-    end
-    StartBtn.Active = true
+    end, function()
+        -- User clicked CANCEL
+        StatusLabel.Text = "Gift cancelled."
+        StartBtn.Active = true
+    end)
 end
 
 -- ==========================================
