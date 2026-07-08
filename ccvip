@@ -1,5 +1,5 @@
 -- ==========================================
--- GIFT VIP CTHINH MAILBOX V3.5 - ENGLISH, AUTO BATCH, NO LIMIT TRACKER
+-- GIFT VIP CTHINH MAILBOX V3.7 - IN-GAME WEBHOOK MANAGER
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -16,6 +16,22 @@ end
 
 local hasFS = (isfile and readfile and writefile)
 local HISTORY_FILE = "GiftVipCThinh_History.json"
+local WEBHOOK_FILE = "GiftVipCThinh_Webhook.txt"
+local CurrentWebhook = ""
+
+-- Load Saved Webhook
+local function LoadWebhook()
+    if hasFS and isfile(WEBHOOK_FILE) then
+        local ok, result = pcall(function() return readfile(WEBHOOK_FILE) end)
+        if ok and type(result) == "string" then CurrentWebhook = result end
+    end
+end
+LoadWebhook()
+
+local function SaveWebhook(url)
+    CurrentWebhook = url
+    if hasFS then pcall(function() writefile(WEBHOOK_FILE, url) end) end
+end
 
 -- ==========================================
 -- ANTI-AFK
@@ -28,11 +44,6 @@ LP.Idled:Connect(function()
     end)
 end)
 
--- ==========================================
--- CONFIGURATION
--- ==========================================
-local WEBHOOK_URL = "https://discord.com/api/webhooks/1521875481065160704/uJaN1YuVz5c_L9KT6C6OBtjZhu3yV5um7NUfhcxBroddJcVVRJy6ccx5DsCblIoNboCA"
-
 local Net = require(RS:WaitForChild("SharedModules"):WaitForChild("Networking"))
 local PS = require(RS:WaitForChild("ClientModules"):WaitForChild("PlayerStateClient"))
 
@@ -40,7 +51,7 @@ local PS = require(RS:WaitForChild("ClientModules"):WaitForChild("PlayerStateCli
 -- DISCORD WEBHOOK LOGIC
 -- ==========================================
 local function SendWebhookLog(uid, targetName, description, isShort)
-    if not request or WEBHOOK_URL == "" then return end
+    if not request or CurrentWebhook == "" then return end
     local currentTime = os.date("%H:%M:%S | %d/%m/%Y")
     task.spawn(function()
         local avatarUrl = "https://tr.rbxcdn.com/38c6edcb50633730ff4cf39ac8859840/150/150/AvatarHeadshot/Png"
@@ -61,15 +72,15 @@ local function SendWebhookLog(uid, targetName, description, isShort)
                 ["color"] = embedColor,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V3.5 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V3.7 • " .. currentTime }
             }}
         }
-        pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
+        pcall(function() request({Url = CurrentWebhook, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
     end)
 end
 
 local function SendReceiveWebhookLog(uid, senderName, description)
-    if not request or WEBHOOK_URL == "" then return end
+    if not request or CurrentWebhook == "" then return end
     local currentTime = os.date("%H:%M:%S | %d/%m/%Y")
     task.spawn(function()
         local avatarUrl = "https://tr.rbxcdn.com/1a7ebc4ab12e126fcb7cb41f7ee6fb80/150/150/Image/Png"
@@ -88,10 +99,10 @@ local function SendReceiveWebhookLog(uid, senderName, description)
                 ["color"] = 16766720,
                 ["description"] = description,
                 ["thumbnail"] = { ["url"] = avatarUrl },
-                ["footer"] = { ["text"] = "GIFT VIP CTHINH V3.5 • " .. currentTime }
+                ["footer"] = { ["text"] = "GIFT VIP CTHINH V3.7 • " .. currentTime }
             }}
         }
-        pcall(function() request({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
+        pcall(function() request({Url = CurrentWebhook, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(data)}) end)
     end)
 end
 
@@ -103,8 +114,8 @@ ScreenGui.Name = "GiftVipCThinh_Mailbox_V3"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 270, 0, 290) 
-MainFrame.Position = UDim2.new(0.5, -250, 0.5, -145) 
+MainFrame.Size = UDim2.new(0, 270, 0, 350) 
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -175) 
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.Active = true
 MainFrame.Draggable = true 
@@ -112,7 +123,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
-Title.Text = "GIFT VIP CTHINH V3.5"
+Title.Text = "GIFT VIP CTHINH V3.7"
 Title.TextColor3 = Color3.fromRGB(0, 255, 150)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
@@ -264,17 +275,71 @@ UserInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 UserInput.TextSize = 11
 Instance.new("UICorner", UserInput)
 
+-- ==========================================
+-- TABS SYSTEM
+-- ==========================================
+local CurrentTab = "All"
+
+local TabsFrame = Instance.new("Frame", TradeFrame)
+TabsFrame.Size = UDim2.new(0, 250, 0, 22)
+TabsFrame.Position = UDim2.new(0.5, -125, 0, 38)
+TabsFrame.BackgroundTransparency = 1
+
+local TabLayout = Instance.new("UIListLayout", TabsFrame)
+TabLayout.FillDirection = Enum.FillDirection.Horizontal
+TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabLayout.Padding = UDim.new(0, 5)
+
+local ItemInputs = {}
 local Scroll = Instance.new("ScrollingFrame", TradeFrame)
-Scroll.Size = UDim2.new(0, 260, 0, 115)
-Scroll.Position = UDim2.new(0.5, -130, 0, 38)
+local ListLayout = Instance.new("UIListLayout", Scroll)
+
+local tabButtons = {}
+local function CreateTab(name, order)
+    local btn = Instance.new("TextButton", TabsFrame)
+    btn.Size = UDim2.new(0.25, -3.75, 1, 0) 
+    btn.Text = name
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 10
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.BackgroundColor3 = (name == CurrentTab) and Color3.fromRGB(0, 170, 80) or Color3.fromRGB(45, 45, 45)
+    btn.LayoutOrder = order
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+
+    btn.MouseButton1Click:Connect(function()
+        if CurrentTab ~= name then
+            CurrentTab = name
+            for tName, tBtn in pairs(tabButtons) do
+                tBtn.BackgroundColor3 = (tName == CurrentTab) and Color3.fromRGB(0, 170, 80) or Color3.fromRGB(45, 45, 45)
+            end
+            
+            for hash, data in pairs(ItemInputs) do
+                local isVis = (CurrentTab == "All" or CurrentTab == data.TabCategory)
+                data.UI.Visible = isVis
+            end
+            Scroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y)
+        end
+    end)
+    tabButtons[name] = btn
+end
+
+CreateTab("All", 1)
+CreateTab("Seeds", 2)
+CreateTab("Pets", 3)
+CreateTab("Other", 4)
+
+-- ==========================================
+-- SCROLL & BUTTONS
+-- ==========================================
+Scroll.Size = UDim2.new(0, 260, 0, 110)
+Scroll.Position = UDim2.new(0.5, -130, 0, 65)
 Scroll.BackgroundTransparency = 1
 Scroll.ScrollBarThickness = 2
-local ListLayout = Instance.new("UIListLayout", Scroll)
 ListLayout.Padding = UDim.new(0, 4)
 
 local StatusLabel = Instance.new("TextLabel", TradeFrame)
 StatusLabel.Size = UDim2.new(1, 0, 0, 20)
-StatusLabel.Position = UDim2.new(0, 0, 0, 160)
+StatusLabel.Position = UDim2.new(0, 0, 0, 180)
 StatusLabel.Text = "Ready!"
 StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 StatusLabel.BackgroundTransparency = 1
@@ -282,7 +347,7 @@ StatusLabel.TextSize = 10
 
 local ClaimAllBtn = Instance.new("TextButton", TradeFrame)
 ClaimAllBtn.Size = UDim2.new(0, 250, 0, 32)
-ClaimAllBtn.Position = UDim2.new(0.5, -125, 0, 185)
+ClaimAllBtn.Position = UDim2.new(0.5, -125, 0, 205)
 ClaimAllBtn.Text = "🎁 CLAIM ALL"
 ClaimAllBtn.BackgroundColor3 = Color3.fromRGB(130, 0, 220)
 ClaimAllBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -292,7 +357,7 @@ Instance.new("UICorner", ClaimAllBtn)
 
 local StartBtn = Instance.new("TextButton", TradeFrame)
 StartBtn.Size = UDim2.new(0, 250, 0, 32)
-StartBtn.Position = UDim2.new(0.5, -125, 0, 222)
+StartBtn.Position = UDim2.new(0.5, -125, 0, 242)
 StartBtn.Text = "🚀 SEND GIFT"
 StartBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
 StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -301,7 +366,41 @@ StartBtn.TextSize = 11
 Instance.new("UICorner", StartBtn)
 
 -- ==========================================
--- PARSER: SMART VARIANT & TRUE NAME EXTRACTOR
+-- WEBHOOK MANAGER UI
+-- ==========================================
+local WebhookInput = Instance.new("TextBox", TradeFrame)
+WebhookInput.Size = UDim2.new(0, 195, 0, 28)
+WebhookInput.Position = UDim2.new(0.5, -125, 0, 279)
+WebhookInput.PlaceholderText = "Paste Discord Webhook URL here..."
+WebhookInput.Text = CurrentWebhook
+WebhookInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+WebhookInput.TextColor3 = Color3.fromRGB(200, 200, 200)
+WebhookInput.TextSize = 9
+WebhookInput.ClearTextOnFocus = false
+WebhookInput.ClipsDescendants = true
+Instance.new("UICorner", WebhookInput)
+
+local SaveWHBtn = Instance.new("TextButton", TradeFrame)
+SaveWHBtn.Size = UDim2.new(0, 50, 0, 28)
+SaveWHBtn.Position = UDim2.new(0.5, 75, 0, 279)
+SaveWHBtn.Text = "💾 SAVE"
+SaveWHBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
+SaveWHBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SaveWHBtn.Font = Enum.Font.GothamBold
+SaveWHBtn.TextSize = 10
+Instance.new("UICorner", SaveWHBtn)
+
+SaveWHBtn.MouseButton1Click:Connect(function()
+    SaveWebhook(WebhookInput.Text)
+    SaveWHBtn.Text = "✔"
+    SaveWHBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
+    task.wait(1)
+    SaveWHBtn.Text = "💾 SAVE"
+    SaveWHBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
+end)
+
+-- ==========================================
+-- PARSER: SMART VARIANT, TABS & TRUE NAME EXTRACTOR
 -- ==========================================
 local function isUUID(str)
     return type(str) == "string" and string.match(str, "%x%x%x%x%x%x%x%x%-") ~= nil
@@ -350,8 +449,13 @@ local function ParseItemData(itemData, fallbackID, categoryName)
         local bName = tostring(fallbackID)
         local lowerBName = string.lower(bName)
         local isKnownSeed = (lowerBName == "strawberry" or lowerBName == "mega" or lowerBName == "coin" or lowerBName == "diamond" or lowerBName == "potion" or lowerBName == "mushroom")
+        
+        local tCat = "Other"
+        if isPetCategory and not isSeedCategory and not string.find(lowerBName, "seed") then tCat = "Pets"
+        elseif isSeedCategory or isKnownSeed or string.find(lowerBName, "seed") then tCat = "Seeds" end
+        
         if (isSeedCategory or isKnownSeed) and not isPetCategory and not string.find(lowerBName, "seed") then bName = bName .. " Seed" end
-        return bName, bName, tonumber(itemData) or 0, fallbackID
+        return bName, bName, tonumber(itemData) or 0, fallbackID, tCat
     end
 
     local d = itemData._data or itemData
@@ -360,6 +464,14 @@ local function ParseItemData(itemData, fallbackID, categoryName)
 
     local lowerBase = string.lower(baseName)
     local isKnownSeed = (lowerBase == "strawberry" or lowerBase == "mega" or lowerBase == "coin" or lowerBase == "diamond" or lowerBase == "potion" or lowerBase == "mushroom")
+    
+    local tabCat = "Other"
+    if isPetCategory and not isSeedCategory and not string.find(lowerBase, "seed") then
+        tabCat = "Pets"
+    elseif isSeedCategory or isKnownSeed or string.find(lowerBase, "seed") then
+        tabCat = "Seeds"
+    end
+    
     if (isSeedCategory or isKnownSeed) and not isPetCategory and not string.find(lowerBase, "seed") then
         baseName = baseName .. " Seed"
     end
@@ -395,13 +507,12 @@ local function ParseItemData(itemData, fallbackID, categoryName)
     local hash = name
     sendKey = itemData.ItemKey or itemData.id or fallbackID
     
-    return name, hash, count, sendKey
+    return name, hash, count, sendKey, tabCat
 end
 
 -- ==========================================
 -- DYNAMIC INVENTORY LOGIC
 -- ==========================================
-local ItemInputs = {}
 local isRefreshing = false
 
 local function RefreshInventoryUI()
@@ -427,10 +538,10 @@ local function RefreshInventoryUI()
 
                     for itemID, itemData in pairs(iterTable) do
                         pcall(function()
-                            local name, hash, count, sendKey = ParseItemData(itemData, itemID, iterCat)
+                            local name, hash, count, sendKey, tabCat = ParseItemData(itemData, itemID, iterCat)
                             if count > 0 then
                                 if not AggregatedItems[hash] then
-                                    AggregatedItems[hash] = { DisplayName = name, Total = 0, RawItems = {} }
+                                    AggregatedItems[hash] = { DisplayName = name, Total = 0, RawItems = {}, TabCategory = tabCat }
                                 end
                                 AggregatedItems[hash].Total = AggregatedItems[hash].Total + count
                                 table.insert(AggregatedItems[hash].RawItems, {
@@ -448,10 +559,13 @@ local function RefreshInventoryUI()
             for hash, data in pairs(AggregatedItems) do
                 trackedHashes[hash] = nil
                 
+                local isVisible = (CurrentTab == "All" or CurrentTab == data.TabCategory)
+                
                 if not ItemInputs[hash] then
                     local Row = Instance.new("Frame", Scroll)
                     Row.Size = UDim2.new(1, -10, 0, 26)
                     Row.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                    Row.Visible = isVisible
                     Instance.new("UICorner", Row)
 
                     local NameLabel = Instance.new("TextLabel", Row)
@@ -480,11 +594,12 @@ local function RefreshInventoryUI()
                     AmountInp.TextSize = 10
                     Instance.new("UICorner", AmountInp)
 
-                    ItemInputs[hash] = { UI = Row, Input = AmountInp, Label = CountLabel, RawItems = data.RawItems, DisplayName = data.DisplayName }
+                    ItemInputs[hash] = { UI = Row, Input = AmountInp, Label = CountLabel, RawItems = data.RawItems, DisplayName = data.DisplayName, TabCategory = data.TabCategory }
                 else
-                    ItemInputs[hash].UI.Visible = true
+                    ItemInputs[hash].UI.Visible = isVisible
                     ItemInputs[hash].Label.Text = "(" .. data.Total .. ")"
                     ItemInputs[hash].RawItems = data.RawItems 
+                    ItemInputs[hash].TabCategory = data.TabCategory
                 end
             end
             
@@ -668,7 +783,7 @@ local function SendMailBatch()
         end
         
         local batchOk = pcall(function() 
-            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V3.5") 
+            local res = Net.Mailbox.SendBatch:Fire(uid, batch, "GIFT VIP CTHINH V3.7") 
             if type(res) == "table" and res.Wait then res:Wait() end
         end)
         
@@ -788,7 +903,7 @@ MinBtn.MouseButton1Click:Connect(function()
     else
         TradeFrame.Visible = true
         HistoryFrame.Visible = true
-        MainFrame.Size = UDim2.new(0, 270, 0, 290)
+        MainFrame.Size = UDim2.new(0, 270, 0, 350)
         MinBtn.Text = "-"
     end
 end)
